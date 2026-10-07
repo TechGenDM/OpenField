@@ -58,8 +58,6 @@ export default function CreateStudyPage() {
         let userMsg = errorInfo?.message || "Failed to generate field study.";
         if (errorInfo?.code === "OLLAMA_UNREACHABLE") {
           userMsg = "Cannot connect to local Ollama. Please make sure Ollama is running (`ollama serve`).";
-        } else if (errorInfo?.code === "MODEL_NOT_FOUND") {
-          userMsg = `Local model not found. Run "ollama pull ${process.env.NEXT_PUBLIC_MODEL || 'gemma4:e4b'}" to download it.`;
         }
         setErrorMessage(userMsg);
         setIsLoading(false);
