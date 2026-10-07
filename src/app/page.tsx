@@ -1,9 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { StudyMinutes, StudyType } from "@/lib/schemas";
 import { saveProtocol } from "@/lib/storage";
+import { StageTrail } from "@/components/ui/StageTrail";
+import { TextField } from "@/components/ui/TextField";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { RadioRow } from "@/components/ui/RadioRow";
+import { Button } from "@/components/ui/Button";
+import { Callout } from "@/components/ui/Callout";
+import { ElapsedLoader } from "@/components/ui/ElapsedLoader";
 
 const TIME_OPTIONS: { value: StudyMinutes; label: string }[] = [
   { value: 15, label: "15 min" },
@@ -13,11 +20,11 @@ const TIME_OPTIONS: { value: StudyMinutes; label: string }[] = [
 ];
 
 const TYPE_OPTIONS: { value: StudyType; label: string; desc: string }[] = [
-  { value: "nature", label: "Nature", desc: "Plants, birds, insects & flora" },
-  { value: "environment", label: "Environment", desc: "Sunlight, soil, wind & shade" },
-  { value: "sound", label: "Sound", desc: "Bird calls, city hum & silence" },
-  { value: "neighborhood", label: "Neighborhood", desc: "Architecture, pathways & footpaths" },
-  { value: "photography", label: "Photography", desc: "Textures, lighting & contrast" },
+  { value: "nature", label: "Nature", desc: "Plants, birds, insects and flora" },
+  { value: "environment", label: "Environment", desc: "Sunlight, soil, wind and shade" },
+  { value: "sound", label: "Sound", desc: "Bird calls, street soundscapes and silence" },
+  { value: "neighborhood", label: "Neighborhood", desc: "Architecture, pathways and footpaths" },
+  { value: "photography", label: "Photography", desc: "Textures, natural lighting and contrast" },
 ];
 
 export default function CreateStudyPage() {
@@ -39,7 +46,7 @@ export default function CreateStudyPage() {
     setErrorMessage(null);
 
     try {
-      // AI calls strictly happen on the server route /api/study
+      // AI calls happen exclusively on the server route /api/study
       const res = await fetch("/api/study", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -58,6 +65,12 @@ export default function CreateStudyPage() {
         let userMsg = errorInfo?.message || "Failed to generate field study.";
         if (errorInfo?.code === "OLLAMA_UNREACHABLE") {
           userMsg = "Cannot connect to local Ollama. Please make sure Ollama is running (`ollama serve`).";
+        } else if (errorInfo?.code === "MODEL_NOT_FOUND") {
+          userMsg = "Requested local model not found. Check OPENFIELD_MODEL or run `ollama pull`.";
+        } else if (errorInfo?.code === "INVALID_MODEL_OUTPUT") {
+          userMsg = "The local model returned unexpected output. Please retry or simplify the question.";
+        } else if (errorInfo?.code === "TIMEOUT") {
+          userMsg = "Protocol generation timed out. Local hardware may be under heavy load.";
         }
         setErrorMessage(userMsg);
         setIsLoading(false);
@@ -79,174 +92,112 @@ export default function CreateStudyPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-zinc-950 sm:text-4xl">
-          Create Field Study
-        </h1>
-        <p className="mt-2 text-base text-zinc-700 leading-relaxed">
-          Ask a question about the real world. Local Gemma will turn it into a short,
-          safe outdoor investigation so you can step outside with your screen off.
-        </p>
-      </div>
+      {/* 4-Stage Survey Progress Trail */}
+      <StageTrail currentStage="plan" />
 
-      {errorMessage && (
-        <div
-          role="alert"
-          className="p-4 rounded-xl border border-red-300 bg-red-50 text-red-950 text-sm space-y-2"
-        >
-          <div className="flex items-center gap-2 font-semibold">
-            <svg
-              className="w-5 h-5 text-red-600 shrink-0"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-              />
-            </svg>
-            <span>Could not generate protocol</span>
-          </div>
-          <p className="text-red-900 leading-normal">{errorMessage}</p>
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Research Question */}
-        <div className="space-y-2">
-          <label
-            htmlFor="question-input"
-            className="block text-base font-semibold text-zinc-900"
-          >
-            What do you want to investigate?
-          </label>
-          <input
-            id="question-input"
-            type="text"
-            required
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            disabled={isLoading}
-            placeholder="e.g. Which trees on my street have begun shedding leaves?"
-            className="w-full px-4 py-3 rounded-xl border border-zinc-300 bg-white text-zinc-950 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-emerald-700 text-base"
-          />
-        </div>
-
-        {/* Place */}
-        <div className="space-y-2">
-          <label
-            htmlFor="place-input"
-            className="block text-base font-semibold text-zinc-900"
-          >
-            Where will you go? (free text)
-          </label>
-          <input
-            id="place-input"
-            type="text"
-            required
-            value={place}
-            onChange={(e) => setPlace(e.target.value)}
-            disabled={isLoading}
-            placeholder="e.g. Local park footpath, sidewalk block, backyard"
-            className="w-full px-4 py-3 rounded-xl border border-zinc-300 bg-white text-zinc-950 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-emerald-700 text-base"
-          />
-          <p className="text-xs text-zinc-600">
-            Keep it accessible and legal. No trespassing, water edges, or busy roads.
+      {/* Two columns from lg up (5/12 left, 7/12 right) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
+        {/* Left Column (5/12) */}
+        <div className="lg:col-span-5 space-y-4">
+          <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-[#101613] leading-tight">
+            Create Field Study
+          </h1>
+          <p className="text-[17px] text-[#44504A] leading-relaxed">
+            Ask a question about the real world. Local Gemma will turn it into a short,
+            safe outdoor investigation so you can step outside with your screen off.
           </p>
-        </div>
 
-        {/* Time Budget */}
-        <div className="space-y-2">
-          <label className="block text-base font-semibold text-zinc-900">
-            Time budget
-          </label>
-          <div className="grid grid-cols-4 gap-2.5">
-            {TIME_OPTIONS.map((opt) => (
-              <button
-                type="button"
-                key={opt.value}
-                disabled={isLoading}
-                onClick={() => setMinutes(opt.value)}
-                className={`py-3 px-2 text-center rounded-xl font-medium border text-sm transition ${
-                  minutes === opt.value
-                    ? "bg-zinc-900 text-white border-zinc-900 shadow-sm"
-                    : "bg-white text-zinc-800 border-zinc-300 hover:bg-zinc-100"
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
+          <div className="pt-4 border-t border-[#D3D9D3] space-y-2 text-[13px] text-[#44504A] font-mono">
+            <p>SURVEY SHEET: 01</p>
+            <p>ENGINE: LOCAL GEMMA</p>
+            <p>DATA RETENTION: ON DEVICE ONLY</p>
           </div>
         </div>
 
-        {/* Study Type */}
-        <div className="space-y-2">
-          <label className="block text-base font-semibold text-zinc-900">
-            Study type
-          </label>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            {TYPE_OPTIONS.map((opt) => (
-              <button
-                type="button"
-                key={opt.value}
-                disabled={isLoading}
-                onClick={() => setType(opt.value)}
-                className={`p-3 text-left rounded-xl border transition ${
-                  type === opt.value
-                    ? "bg-emerald-50 border-emerald-700 ring-1 ring-emerald-700"
-                    : "bg-white border-zinc-300 hover:bg-zinc-50"
-                }`}
-              >
-                <div className="font-semibold text-zinc-950 text-sm">
-                  {opt.label}
-                </div>
-                <div className="text-xs text-zinc-600 mt-0.5">
-                  {opt.desc}
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
+        {/* Right Column (7/12) */}
+        <div className="lg:col-span-7 space-y-6">
+          {errorMessage && (
+            <Callout
+              role="alert"
+              title="Could not generate protocol"
+              variant="signal"
+            >
+              {errorMessage}
+            </Callout>
+          )}
 
-        {/* Submit Button */}
-        <div className="pt-2">
-          <button
-            type="submit"
-            disabled={isLoading || !question.trim() || !place.trim()}
-            className="w-full py-4 px-6 rounded-xl bg-zinc-950 text-white font-semibold text-lg tracking-wide hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-3 shadow-md"
-          >
-            {isLoading ? (
-              <>
-                <svg
-                  className="animate-spin h-5 w-5 text-white"
-                  fill="none"
-                  viewBox="0 0 24 24"
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Research Question */}
+            <TextField
+              id="question-input"
+              label="What do you want to investigate?"
+              required
+              disabled={isLoading}
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              placeholder="e.g. Which trees on my street have begun shedding leaves?"
+            />
+
+            {/* Place */}
+            <TextField
+              id="place-input"
+              label="Where will you go? (free text)"
+              required
+              disabled={isLoading}
+              value={place}
+              onChange={(e) => setPlace(e.target.value)}
+              placeholder="e.g. Local park footpath, sidewalk block, backyard"
+              helperText="Keep it accessible and legal. No trespassing, water edges, or busy roads."
+            />
+
+            {/* Time Budget */}
+            <div className="space-y-2 text-left">
+              <label className="block text-[15px] font-medium text-[#101613]">
+                Time budget
+              </label>
+              <SegmentedControl
+                name="Time budget"
+                options={TIME_OPTIONS}
+                value={minutes}
+                onChange={(val) => setMinutes(val)}
+                disabled={isLoading}
+              />
+            </div>
+
+            {/* Study Type */}
+            <div className="space-y-2 text-left">
+              <label className="block text-[15px] font-medium text-[#101613]">
+                Study type
+              </label>
+              <RadioRow
+                options={TYPE_OPTIONS}
+                value={type}
+                onChange={(val) => setType(val)}
+                disabled={isLoading}
+              />
+            </div>
+
+            {/* Submit Action or Honest Elapsed Loader */}
+            <div className="pt-2">
+              {isLoading ? (
+                <ElapsedLoader
+                  label="Gemma is writing your protocol"
+                  subtext="Local models are slow. This usually takes about a minute."
+                />
+              ) : (
+                <Button
+                  type="submit"
+                  size="lg"
+                  disabled={!question.trim() || !place.trim()}
+                  className="w-full"
                 >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  />
-                </svg>
-                <span>Gemma is generating protocol...</span>
-              </>
-            ) : (
-              <span>Create Field Study</span>
-            )}
-          </button>
+                  Create Field Study
+                </Button>
+              )}
+            </div>
+          </form>
         </div>
-      </form>
+      </div>
     </div>
   );
 }
