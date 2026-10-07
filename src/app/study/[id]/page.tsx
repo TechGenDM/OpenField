@@ -9,9 +9,8 @@ import { sanitizeDisplayText } from "@/lib/ui/sanitize";
 import { StageTrail } from "@/components/ui/StageTrail";
 import { Tag } from "@/components/ui/Tag";
 import { Callout } from "@/components/ui/Callout";
-import { Disclosure } from "@/components/ui/Disclosure";
 import { Button } from "@/components/ui/Button";
-import { ArrowLeft, Printer, ArrowRight } from "@phosphor-icons/react";
+import { ArrowLeft, Printer, ArrowRight, SpeakerHigh, StopCircle } from "@phosphor-icons/react";
 
 export default function ProtocolPage() {
   const params = useParams();
@@ -20,6 +19,10 @@ export default function ProtocolPage() {
   const [protocol, setProtocol] = useState<FieldProtocol | null>(null);
   const [hasLoaded, setHasLoaded] = useState(false);
 
+  // Audio SpeechSynthesis state
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(false);
+
   useEffect(() => {
     if (id) {
       const loaded = getProtocol(id);
@@ -27,6 +30,34 @@ export default function ProtocolPage() {
       setHasLoaded(true);
     }
   }, [id]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      setSpeechSupported(true);
+    }
+    return () => {
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
+
+  const toggleSpeech = () => {
+    if (!speechSupported || !protocol?.audioScript) return;
+
+    if (isPlayingAudio) {
+      window.speechSynthesis.cancel();
+      setIsPlayingAudio(false);
+    } else {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(protocol.audioScript);
+      utterance.rate = 0.95; // calm, unhurried cadence
+      utterance.onend = () => setIsPlayingAudio(false);
+      utterance.onerror = () => setIsPlayingAudio(false);
+      window.speechSynthesis.speak(utterance);
+      setIsPlayingAudio(true);
+    }
+  };
 
   if (!hasLoaded) {
     return (
@@ -165,14 +196,52 @@ export default function ProtocolPage() {
           </ul>
         </section>
 
-        {/* Spoken Briefing Script collapsed behind a Disclosure */}
+        {/* Spoken Audio Briefing & Script Preview */}
         {protocol.audioScript && (
-          <section className="pt-2 no-print">
-            <Disclosure title="Audio Briefing Script Preview">
-              <p className="text-[16px] text-[#44504A] leading-relaxed italic">
-                &ldquo;{sanitizeDisplayText(protocol.audioScript)}&rdquo;
-              </p>
-            </Disclosure>
+          <section aria-labelledby="briefing-heading" className="pt-2 no-print">
+            <div className="border border-[#D3D9D3] rounded-[4px] bg-[#FAFBF9] overflow-hidden">
+              <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#D3D9D3]">
+                <div className="flex items-center gap-2">
+                  <SpeakerHigh size={18} className="text-[#101613]" />
+                  <h2
+                    id="briefing-heading"
+                    className="text-[14px] font-mono uppercase tracking-wider text-[#101613] font-medium"
+                  >
+                    Audio Briefing
+                  </h2>
+                </div>
+
+                {speechSupported && (
+                  <Button
+                    type="button"
+                    variant={isPlayingAudio ? "primary" : "secondary"}
+                    size="sm"
+                    onClick={toggleSpeech}
+                  >
+                    {isPlayingAudio ? (
+                      <>
+                        <StopCircle size={16} />
+                        <span>Stop briefing</span>
+                      </>
+                    ) : (
+                      <>
+                        <SpeakerHigh size={16} />
+                        <span>Listen to briefing</span>
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+
+              <div className="p-4 bg-[#FAFBF9] space-y-1.5">
+                <span className="block text-[12px] font-mono uppercase tracking-wider text-[#44504A]">
+                  Spoken Script Preview
+                </span>
+                <p className="text-[16px] text-[#44504A] leading-relaxed italic">
+                  &ldquo;{sanitizeDisplayText(protocol.audioScript)}&rdquo;
+                </p>
+              </div>
+            </div>
           </section>
         )}
       </article>
@@ -185,14 +254,27 @@ export default function ProtocolPage() {
             type="button"
             variant="secondary"
             size="lg"
-            onClick={() => window.print()}
+            onClick={() => {
+              if (typeof window !== "undefined" && "speechSynthesis" in window) {
+                window.speechSynthesis.cancel();
+              }
+              window.print();
+            }}
             className="flex-1"
           >
             <Printer size={18} />
             <span>Save Field Card</span>
           </Button>
 
-          <Link href={`/study/${protocol.id}/field`} className="flex-1">
+          <Link
+            href={`/study/${protocol.id}/field`}
+            className="flex-1"
+            onClick={() => {
+              if (typeof window !== "undefined" && "speechSynthesis" in window) {
+                window.speechSynthesis.cancel();
+              }
+            }}
+          >
             <Button
               variant="primary"
               size="lg"
