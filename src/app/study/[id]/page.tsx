@@ -219,17 +219,15 @@ export default function ProtocolPage() {
             <span>Save Field Card (Print / PDF)</span>
           </button>
 
-          <button
-            type="button"
-            disabled
-            className="w-full py-3.5 px-4 rounded-xl bg-zinc-300 text-zinc-600 font-semibold text-base cursor-not-allowed flex items-center justify-center gap-2"
-            title="Field Mode will be built in Task #2"
+          <Link
+            href={`/study/${protocol.id}/field`}
+            className="w-full py-3.5 px-4 rounded-xl bg-zinc-950 text-white font-semibold text-base hover:bg-zinc-800 transition flex items-center justify-center gap-2 shadow-sm text-center"
           >
-            <span>Start Field Study</span>
-            <span className="text-xs bg-zinc-400/50 text-zinc-700 px-2 py-0.5 rounded-full font-normal">
-              Task 2
+            <span>Start Field Study (Field Mode)</span>
+            <span className="text-xs bg-emerald-900/80 text-emerald-200 px-2 py-0.5 rounded-full font-medium">
+              Screen 3
             </span>
-          </button>
+          </Link>
         </div>
 
         <p className="text-xs text-center text-zinc-500">
