@@ -6,10 +6,10 @@
  */
 export function sanitizeDisplayText(text: string | null | undefined): string {
   if (!text) return "";
-  // Replace em-dash (—), en-dash (–), and horizontal bar (―) with a clean spaced hyphen or regular hyphen
+  // Replace em-dash, en-dash, and horizontal bar with a clean spaced hyphen or regular hyphen
   return text
-    .replace(/\s*[—–―]\s*/g, " - ")
-    .replace(/[—–―]/g, "-");
+    .replace(/\s*[\u2014\u2013\u2015]\s*/g, " - ")
+    .replace(/[\u2014\u2013\u2015]/g, "-");
 }
 
 /**
