@@ -58,7 +58,21 @@ export function mapOllamaError(err: unknown): AppError {
 
   return {
     code: "INVALID_MODEL_OUTPUT",
-    message: "Failed to generate or validate protocol output.",
+    message: "Failed to generate or validate model output.",
     details: message,
   };
+}
+
+/**
+ * Helper to format Ollama runtime telemetry into a safe diagnostic string.
+ * Never includes user input, prompt text, or model output.
+ */
+export function formatOllamaStats(res: Record<string, unknown>): string {
+  const loadMs = typeof res.load_duration === "number" ? Math.round(res.load_duration / 1e6) : 0;
+  const promptEvalMs = typeof res.prompt_eval_duration === "number" ? Math.round(res.prompt_eval_duration / 1e6) : 0;
+  const evalMs = typeof res.eval_duration === "number" ? Math.round(res.eval_duration / 1e6) : 0;
+  const evalTokens = typeof res.eval_count === "number" ? res.eval_count : 0;
+  const tps = evalMs > 0 ? ((evalTokens / evalMs) * 1000).toFixed(1) : "N/A";
+
+  return `load: ${loadMs}ms, prompt_eval: ${promptEvalMs}ms, eval: ${evalMs}ms, generated: ${evalTokens} tokens @ ${tps} t/s`;
 }

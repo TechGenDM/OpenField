@@ -1,4 +1,4 @@
-import { StudyInput } from "../schemas";
+import { StudyInput, FieldProtocol, Observation } from "../schemas";
 
 /**
  * System prompt setting OpenField rules, constraints, and safety guidelines
@@ -64,7 +64,7 @@ Please correct the issues and output valid JSON conforming strictly to the schem
 }
 
 /**
- * JSON Schema for Ollama structured output
+ * JSON Schema for Ollama structured output (Protocol)
  */
 export const PROTOCOL_JSON_SCHEMA = {
   type: "object",
@@ -101,5 +101,166 @@ export const PROTOCOL_JSON_SCHEMA = {
     "evidenceNeeded",
     "safetyNote",
     "audioScript",
+  ],
+};
+
+/**
+ * Debrief System Prompt setting OpenField honesty, evidence analysis, and citation rules
+ * based on SPEC.md Section 5 and ARCHITECTURE.md.
+ */
+export const DEBRIEF_SYSTEM_PROMPT = `You are OpenField Debrief, a local field-study research analyst powered by local Gemma.
+Your job is to analyze the user's completed outdoor field investigation based ONLY on the evidence they provided (notes, counts, measurements, and photos).
+
+CRITICAL HONESTY RULES (SPEC SECTION 5 & AGENTS.md):
+1. SEPARATE THREE CATEGORIES STRICTLY:
+   - "observed": Things the user recorded, saw, heard, counted, or photographed directly in the field.
+   - "inferred": AI interpretations, logical deductions, or hypotheses derived from the observations. Clearly state this is inference.
+   - "uncertain": Gaps in the evidence, missing measurements, unconfirmed identifications, or unanswerable aspects of the research question.
+2. REFUSE TO INVENT EVIDENCE:
+   - Never invent measurements (temperatures, decibels, distances, weights), weather readings, counts, or exact species names that the user did not record.
+   - If no real measurements were taken, you MUST explicitly state so in the "uncertain" section (e.g., "No instrumented temperature, sound, or physical measurements recorded").
+   - It is correct, honest, and expected to state "Not enough evidence" whenever observations are insufficient.
+3. FINDINGS AND CITATIONS:
+   - For every finding in "findings", provide a concrete claim, a confidence level ("low", "medium", or "high"), and an "evidenceRefs" array.
+   - "evidenceRefs" MUST ONLY contain valid IDs from the investigation: either a step ID (e.g., "step-1") or a photo ID (e.g., "photo-1"). Do not invent non-existent IDs.
+4. EVIDENCE SUMMARY:
+   - Count the total photos, notes, and measurements provided by the user in "evidenceSummary".
+5. NEXT QUESTION:
+   - Suggest a single, compelling follow-up research question (nextQuestion) that builds directly upon what was learned and what remains uncertain.
+
+Output must strictly adhere to the requested JSON schema.`;
+
+/**
+ * Builds the user prompt for debrief analysis with clear steps, observations, and attached photo IDs.
+ */
+export function buildDebriefUserPrompt({
+  protocol,
+  observations,
+  photos = [],
+}: {
+  protocol: FieldProtocol;
+  observations: Observation[];
+  photos?: { id: string }[];
+}): string {
+  const stepsText = protocol.steps
+    .map(
+      (s) =>
+        `- Step ID: ${s.id} | Instruction: "${s.instruction}" | Expected Evidence: ${s.evidence}`
+    )
+    .join("\n");
+
+  const observationsText = observations
+    .map((obs) => {
+      const parts = [`- Step ID: ${obs.stepId}`];
+      if (obs.note && obs.note.trim()) parts.push(`Note: "${obs.note.trim()}"`);
+      if (obs.photoIds && obs.photoIds.length > 0)
+        parts.push(`Attached Photos: ${obs.photoIds.join(", ")}`);
+      if (obs.measured !== undefined)
+        parts.push(`Measured/Counted: ${obs.measured ? "Yes" : "No"}`);
+      return parts.join(" | ");
+    })
+    .join("\n");
+
+  const photosListText =
+    photos.length > 0
+      ? photos.map((p, i) => `- Photo ${i + 1} ID: "${p.id}"`).join("\n")
+      : "No photos provided.";
+
+  return `Please evaluate the following completed outdoor field study:
+Research Question: "${protocol.researchQuestion}"
+Location / Setting: "${protocol.title}"
+Duration: ${protocol.minutes} minutes
+Study Type: ${protocol.type}
+
+INVESTIGATION PROTOCOL STEPS:
+${stepsText}
+
+USER FIELD OBSERVATIONS & EVIDENCE:
+${observationsText || "No user notes recorded."}
+
+ATTACHED PHOTOS (${photos.length} total):
+${photosListText}
+
+Please write an honest Field Report adhering to all rules:
+- Only cite valid step IDs (${protocol.steps.map((s) => s.id).join(", ")}) or photo IDs (${photos.map((p) => p.id).join(", ") || "none"}) in evidenceRefs.
+- Separate observed facts from AI inferences from uncertainties.
+- If measurements were missing, state this clearly in "uncertain".`;
+}
+
+/**
+ * Builds the retry prompt if the model's debrief output failed validation or citation checks.
+ */
+export function buildDebriefRetryPrompt(
+  originalUserPrompt: string,
+  rawOutput: string,
+  validationError: string
+): string {
+  return `${originalUserPrompt}
+
+IMPORTANT: Your previous output failed validation or citation checks:
+${validationError}
+
+Previous output was:
+${rawOutput}
+
+Please correct the issues and output valid JSON conforming strictly to the schema.
+Every evidenceRefs entry MUST strictly match one of the actual Step IDs or Photo IDs provided.
+Adhere strictly to the honesty rules (separate observed vs inferred vs uncertain, and acknowledge missing evidence).`;
+}
+
+/**
+ * JSON Schema for Ollama structured output (Debrief / Report)
+ */
+export const REPORT_JSON_SCHEMA = {
+  type: "object",
+  properties: {
+    findings: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          claim: { type: "string" },
+          evidenceRefs: {
+            type: "array",
+            items: { type: "string" },
+          },
+          confidence: {
+            type: "string",
+            enum: ["low", "medium", "high"],
+          },
+        },
+        required: ["claim", "evidenceRefs", "confidence"],
+      },
+    },
+    observed: {
+      type: "array",
+      items: { type: "string" },
+    },
+    inferred: {
+      type: "array",
+      items: { type: "string" },
+    },
+    uncertain: {
+      type: "array",
+      items: { type: "string" },
+    },
+    evidenceSummary: {
+      type: "object",
+      properties: {
+        photos: { type: "integer" },
+        notes: { type: "integer" },
+        measurements: { type: "integer" },
+      },
+      required: ["photos", "notes", "measurements"],
+    },
+    nextQuestion: { type: "string" },
+  },
+  required: [
+    "findings",
+    "observed",
+    "inferred",
+    "uncertain",
+    "evidenceSummary",
+    "nextQuestion",
   ],
 };
