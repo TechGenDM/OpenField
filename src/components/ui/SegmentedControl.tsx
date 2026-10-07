@@ -5,6 +5,7 @@ import React from "react";
 export interface SegmentOption<T extends string | number> {
   value: T;
   label: string;
+  icon?: React.ReactNode;
 }
 
 export interface SegmentedControlProps<T extends string | number> {
@@ -14,6 +15,7 @@ export interface SegmentedControlProps<T extends string | number> {
   disabled?: boolean;
   className?: string;
   name?: string;
+  activeVariant?: "dark" | "terracotta";
 }
 
 export function SegmentedControl<T extends string | number>({
@@ -23,12 +25,13 @@ export function SegmentedControl<T extends string | number>({
   disabled = false,
   className = "",
   name = "segmented-control",
+  activeVariant = "terracotta",
 }: SegmentedControlProps<T>) {
   return (
     <div
       role="radiogroup"
       aria-label={name}
-      className={`grid grid-cols-4 border border-[#D3D9D3] rounded-[4px] bg-[#FAFBF9] divide-x divide-[#D3D9D3] overflow-hidden ${className}`}
+      className={`grid grid-cols-4 border border-[#DFE2DC] rounded-xl bg-white divide-x divide-[#DFE2DC] overflow-hidden ${className}`}
     >
       {options.map((opt) => {
         const isSelected = opt.value === value;
@@ -40,13 +43,16 @@ export function SegmentedControl<T extends string | number>({
             aria-checked={isSelected}
             disabled={disabled}
             onClick={() => onChange(opt.value)}
-            className={`min-h-[48px] py-3 px-2 text-center text-[15px] font-mono transition-colors focus-visible:outline-2 focus-visible:outline-[#B8461A] focus-visible:outline-offset-[-2px] disabled:opacity-40 disabled:cursor-not-allowed ${
+            className={`min-h-[48px] py-3 px-1 text-center text-[14px] font-medium transition-colors flex items-center justify-center gap-1.5 focus-visible:outline-2 focus-visible:outline-[#C0562F] focus-visible:outline-offset-[-2px] disabled:opacity-40 disabled:cursor-not-allowed ${
               isSelected
-                ? "bg-[#101613] text-[#F2F4F1] font-semibold"
-                : "bg-[#FAFBF9] text-[#44504A] hover:bg-[#F2F4F1] hover:text-[#101613]"
+                ? activeVariant === "terracotta"
+                  ? "bg-[#C0562F] text-white"
+                  : "bg-[#101613] text-[#F2F4F1] font-semibold"
+                : "bg-white text-[#303833] hover:bg-[#F9FAF8]"
             }`}
           >
-            {opt.label}
+            {opt.icon && <span className="shrink-0">{opt.icon}</span>}
+            <span>{opt.label}</span>
           </button>
         );
       })}

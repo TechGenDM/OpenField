@@ -18,23 +18,23 @@ export function StageTrail({ currentStage, className = "" }: StageTrailProps) {
   return (
     <nav
       aria-label="Study progress trail"
-      className={`flex items-center gap-6 text-[13px] font-mono tracking-wider no-print ${className}`}
+      className={`flex items-center gap-4 sm:gap-5 text-[13px] font-sans no-print select-none ${className}`}
     >
       {STAGES.map((s, idx) => {
         const isCurrent = s.id === currentStage;
         return (
-          <div key={s.id} className="flex items-center gap-6">
+          <div key={s.id} className="flex items-center gap-4 sm:gap-5">
             <span
-              className={`pb-1 select-none transition-colors ${
+              className={`pb-0.5 transition-colors ${
                 isCurrent
-                  ? "text-[#101613] font-semibold border-b-2 border-[#B8461A]"
-                  : "text-[#44504A]/70"
+                  ? "text-[#101613] font-semibold border-b-2 border-[#101613]"
+                  : "text-[#7A837C]"
               }`}
             >
               {s.label}
             </span>
             {idx < STAGES.length - 1 && (
-              <span className="text-[#D3D9D3] select-none" aria-hidden="true">
+              <span className="text-[#C4C8C2]" aria-hidden="true">
                 /
               </span>
             )}

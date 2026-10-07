@@ -12,19 +12,63 @@ import { Button } from "@/components/ui/Button";
 import { Callout } from "@/components/ui/Callout";
 import { ElapsedLoader } from "@/components/ui/ElapsedLoader";
 
-const TIME_OPTIONS: { value: StudyMinutes; label: string }[] = [
-  { value: 15, label: "15 min" },
-  { value: 30, label: "30 min" },
-  { value: 45, label: "45 min" },
-  { value: 60, label: "60 min" },
+import {
+  Clock,
+  Leaf,
+  Sun,
+  Waveform,
+  House,
+  Camera,
+  MapPin,
+  Article,
+  Gear,
+  Database,
+  ArrowRight,
+} from "@phosphor-icons/react";
+
+const TIME_OPTIONS: { value: StudyMinutes; label: string; icon: React.ReactNode }[] = [
+  { value: 15, label: "15 min", icon: <Clock size={16} weight="regular" /> },
+  { value: 30, label: "30 min", icon: <Clock size={16} weight="regular" /> },
+  { value: 45, label: "45 min", icon: <Clock size={16} weight="regular" /> },
+  { value: 60, label: "60 min", icon: <Clock size={16} weight="regular" /> },
 ];
 
-const TYPE_OPTIONS: { value: StudyType; label: string; desc: string }[] = [
-  { value: "nature", label: "Nature", desc: "Plants, birds, insects and flora" },
-  { value: "environment", label: "Environment", desc: "Sunlight, soil, wind and shade" },
-  { value: "sound", label: "Sound", desc: "Bird calls, street soundscapes and silence" },
-  { value: "neighborhood", label: "Neighborhood", desc: "Architecture, pathways and footpaths" },
-  { value: "photography", label: "Photography", desc: "Textures, natural lighting and contrast" },
+const TYPE_OPTIONS: {
+  value: StudyType;
+  label: string;
+  desc: string;
+  icon: React.ReactNode;
+}[] = [
+  {
+    value: "nature",
+    label: "Nature",
+    desc: "Plants, birds, insects and flora",
+    icon: <Leaf size={22} weight="regular" />,
+  },
+  {
+    value: "environment",
+    label: "Environment",
+    desc: "Sunlight, soil, wind and shade",
+    icon: <Sun size={22} weight="regular" />,
+  },
+  {
+    value: "sound",
+    label: "Sound",
+    desc: "Bird calls, street soundscapes and silence",
+    icon: <Waveform size={22} weight="regular" />,
+  },
+  {
+    value: "neighborhood",
+    label: "Neighborhood",
+    desc: "Architecture, pathways and footpaths",
+    icon: <House size={22} weight="regular" />,
+  },
+  {
+    value: "photography",
+    label: "Photography",
+    desc: "Textures, natural lighting and contrast",
+    icon: <Camera size={22} weight="regular" />,
+  },
 ];
 
 export default function CreateStudyPage() {
@@ -40,7 +84,10 @@ export default function CreateStudyPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!question.trim() || !place.trim()) return;
+    if (!question.trim() || !place.trim()) {
+      setErrorMessage("Please enter both an investigation question and a location.");
+      return;
+    }
 
     setIsLoading(true);
     setErrorMessage(null);
@@ -91,111 +138,159 @@ export default function CreateStudyPage() {
   };
 
   return (
-    <div className="space-y-8">
-      {/* 4-Stage Survey Progress Trail */}
-      <StageTrail currentStage="plan" />
+    <div className="relative min-h-[calc(100vh-140px)] flex flex-col justify-center">
+      {/* Left Landscape Background positioned in bottom-left below metadata */}
+      <div
+        className="pointer-events-none absolute -left-4 sm:-left-8 bottom-0 w-full sm:w-[52%] lg:w-[48%] h-[54%] overflow-hidden z-0 select-none hidden sm:block"
+        aria-hidden="true"
+      >
+        <div
+          className="w-full h-full"
+          style={{
+            WebkitMaskImage:
+              "linear-gradient(to right, black 35%, rgba(0,0,0,0.7) 65%, transparent 100%)",
+            maskImage:
+              "linear-gradient(to right, black 35%, rgba(0,0,0,0.7) 65%, transparent 100%)",
+          }}
+        >
+          <div
+            className="w-full h-full bg-no-repeat bg-left-bottom bg-cover"
+            style={{
+              backgroundImage: "url('/images/landscape.jpg')",
+              WebkitMaskImage:
+                "linear-gradient(to top, black 35%, rgba(0,0,0,0.7) 70%, transparent 95%)",
+              maskImage:
+                "linear-gradient(to top, black 35%, rgba(0,0,0,0.7) 70%, transparent 95%)",
+            }}
+          />
+        </div>
+      </div>
 
-      {/* Two columns from lg up (5/12 left, 7/12 right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
+      {/* Main Two-Column Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start relative z-10 py-1 sm:py-2">
         {/* Left Column (5/12) */}
-        <div className="lg:col-span-5 space-y-4">
-          <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-[#101613] leading-tight">
-            Create Field Study
-          </h1>
-          <p className="text-[17px] text-[#44504A] leading-relaxed">
+        <div className="lg:col-span-5 space-y-5 pt-1">
+          {/* Progress Breadcrumbs */}
+          <StageTrail currentStage="plan" />
+
+          {/* Headline */}
+          <div className="space-y-0.5">
+            <h1 className="text-4xl sm:text-[44px] font-extrabold tracking-tight text-[#111815] leading-[1.08]">
+              Create<br />
+              <span className="text-[#C0562F]">Field Study</span>
+            </h1>
+          </div>
+
+          {/* Description */}
+          <p className="text-[15px] sm:text-[16px] text-[#444D47] leading-relaxed max-w-[400px]">
             Ask a question about the real world. Local Gemma will turn it into a short,
             safe outdoor investigation so you can step outside with your screen off.
           </p>
 
-          <div className="pt-4 border-t border-[#D3D9D3] space-y-2 text-[13px] text-[#44504A] font-mono">
-            <p>SURVEY SHEET: 01</p>
-            <p>ENGINE: LOCAL GEMMA</p>
-            <p>DATA RETENTION: ON DEVICE ONLY</p>
+          {/* Technical Specifications */}
+          <div className="pt-2 space-y-2 text-[12px] font-mono tracking-wider text-[#3D4540] font-medium">
+            <div className="flex items-center gap-2.5">
+              <Article size={18} weight="regular" className="text-[#3D4540] shrink-0" />
+              <span>SURVEY SHEET: 01</span>
+            </div>
+            <div className="flex items-center gap-2.5">
+              <Gear size={18} weight="regular" className="text-[#3D4540] shrink-0" />
+              <span>ENGINE: LOCAL GEMMA</span>
+            </div>
+            <div className="flex items-center gap-2.5">
+              <Database size={18} weight="regular" className="text-[#3D4540] shrink-0" />
+              <span>DATA RETENTION: ON DEVICE ONLY</span>
+            </div>
           </div>
         </div>
 
-        {/* Right Column (7/12) */}
-        <div className="lg:col-span-7 space-y-6">
-          {errorMessage && (
-            <Callout
-              role="alert"
-              title="Could not generate protocol"
-              variant="signal"
-            >
-              {errorMessage}
-            </Callout>
-          )}
+        {/* Right Column (7/12): Form Card */}
+        <div className="lg:col-span-7">
+          <div className="bg-white rounded-2xl border border-[#DFE2DC] shadow-[0_4px_24px_rgba(0,0,0,0.03)] p-5 sm:p-6 space-y-4">
+            {errorMessage && (
+              <Callout
+                role="alert"
+                title="Could not generate protocol"
+                variant="signal"
+              >
+                {errorMessage}
+              </Callout>
+            )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Research Question */}
-            <TextField
-              id="question-input"
-              label="What do you want to investigate?"
-              required
-              disabled={isLoading}
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              placeholder="e.g. Which trees on my street have begun shedding leaves?"
-            />
-
-            {/* Place */}
-            <TextField
-              id="place-input"
-              label="Where will you go? (free text)"
-              required
-              disabled={isLoading}
-              value={place}
-              onChange={(e) => setPlace(e.target.value)}
-              placeholder="e.g. Local park footpath, sidewalk block, backyard"
-              helperText="Keep it accessible and legal. No trespassing, water edges, or busy roads."
-            />
-
-            {/* Time Budget */}
-            <div className="space-y-2 text-left">
-              <label className="block text-[15px] font-medium text-[#101613]">
-                Time budget
-              </label>
-              <SegmentedControl
-                name="Time budget"
-                options={TIME_OPTIONS}
-                value={minutes}
-                onChange={(val) => setMinutes(val)}
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Research Question */}
+              <TextField
+                id="question-input"
+                label="What do you want to investigate?"
+                required
                 disabled={isLoading}
+                value={question}
+                onChange={(e) => setQuestion(e.target.value.slice(0, 200))}
+                placeholder="e.g. Which trees on my street have begun shedding leaves?"
+                leftIcon={<Leaf size={18} weight="regular" />}
+                counter={`${question.length} / 200`}
+                highlighted
               />
-            </div>
 
-            {/* Study Type */}
-            <div className="space-y-2 text-left">
-              <label className="block text-[15px] font-medium text-[#101613]">
-                Study type
-              </label>
-              <RadioRow
-                options={TYPE_OPTIONS}
-                value={type}
-                onChange={(val) => setType(val)}
+              {/* Place */}
+              <TextField
+                id="place-input"
+                label="Where will you go? (free text)"
+                required
                 disabled={isLoading}
+                value={place}
+                onChange={(e) => setPlace(e.target.value)}
+                placeholder="e.g. Local park footpath, sidewalk block, backyard"
+                leftIcon={<MapPin size={18} weight="regular" />}
+                helperText="Keep it accessible and legal. No trespassing, water edges, or busy roads."
               />
-            </div>
 
-            {/* Submit Action or Honest Elapsed Loader */}
-            <div className="pt-2">
-              {isLoading ? (
-                <ElapsedLoader
-                  label="Gemma is writing your protocol"
-                  subtext="Local models are slow. This usually takes about a minute."
+              {/* Time Budget */}
+              <div className="space-y-1.5 text-left">
+                <label className="block text-[14px] font-semibold text-[#18201B]">
+                  Time budget
+                </label>
+                <SegmentedControl
+                  name="Time budget"
+                  options={TIME_OPTIONS}
+                  value={minutes}
+                  onChange={(val) => setMinutes(val)}
+                  disabled={isLoading}
                 />
-              ) : (
-                <Button
-                  type="submit"
-                  size="lg"
-                  disabled={!question.trim() || !place.trim()}
-                  className="w-full"
-                >
-                  Create Field Study
-                </Button>
-              )}
-            </div>
-          </form>
+              </div>
+
+              {/* Study Type */}
+              <div className="space-y-1.5 text-left">
+                <label className="block text-[14px] font-semibold text-[#18201B]">
+                  Study type
+                </label>
+                <RadioRow
+                  options={TYPE_OPTIONS}
+                  value={type}
+                  onChange={(val) => setType(val)}
+                  disabled={isLoading}
+                />
+              </div>
+
+              {/* Submit Action or Honest Elapsed Loader */}
+              <div className="pt-1">
+                {isLoading ? (
+                  <ElapsedLoader
+                    label="Gemma is writing your protocol"
+                    subtext="Local models are slow. This usually takes about a minute."
+                  />
+                ) : (
+                  <button
+                    type="submit"
+                    className="w-full min-h-[48px] py-3 px-5 rounded-xl bg-[#C0562F] hover:bg-[#AB4924] active:bg-[#973F1E] text-white font-medium text-[15px] flex items-center justify-center gap-2 transition-colors shadow-xs focus-visible:outline-2 focus-visible:outline-[#C0562F] focus-visible:outline-offset-2 cursor-pointer"
+                  >
+                    <span>Create Field Study</span>
+                    <ArrowRight size={18} weight="bold" />
+                  </button>
+                )}
+              </div>
+            </form>
+          </div>
         </div>
       </div>
     </div>
