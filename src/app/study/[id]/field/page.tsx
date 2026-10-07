@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { FieldProtocol } from "@/lib/schemas";
 import { getProtocol } from "@/lib/storage";
 import { formatTimer, calculateRemainingSeconds, clampStepIndex } from "@/lib/timer";
+import { sanitizeDisplayText } from "@/lib/ui/sanitize";
+import { ArrowLeft, ArrowRight, SpeakerHigh, StopCircle, CaretDown } from "@phosphor-icons/react";
 
 export default function FieldModePage() {
   const params = useParams();
@@ -20,12 +22,13 @@ export default function FieldModePage() {
 
   // Timer state derived from target end timestamp
   const [remainingSeconds, setRemainingSeconds] = useState(0);
-  const [isTimeUp, setIsTimeUp] = useState(false);
+  const [, setIsTimeUp] = useState(false);
   const targetEndTimeRef = useRef<number | null>(null);
 
   // Audio SpeechSynthesis state
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
+  const [audioScriptOpen, setAudioScriptOpen] = useState(false);
 
   // 1. Load protocol from browser storage
   useEffect(() => {
@@ -35,7 +38,6 @@ export default function FieldModePage() {
       if (loaded) {
         const totalSec = loaded.minutes * 60;
         setRemainingSeconds(totalSec);
-        // Set target end time from now
         targetEndTimeRef.current = Date.now() + totalSec * 1000;
       }
       setHasLoaded(true);
@@ -79,7 +81,7 @@ export default function FieldModePage() {
     } else {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(protocol.audioScript);
-      utterance.rate = 0.95; // slightly slower, calm cadence
+      utterance.rate = 0.95; // calm, unhurried cadence
       utterance.onend = () => setIsPlayingAudio(false);
       utterance.onerror = () => setIsPlayingAudio(false);
       window.speechSynthesis.speak(utterance);
@@ -89,7 +91,7 @@ export default function FieldModePage() {
 
   if (!hasLoaded) {
     return (
-      <div className="min-h-screen bg-black text-zinc-400 flex items-center justify-center p-6 text-base">
+      <div className="min-h-[100dvh] bg-[#0B0F0D] text-[#98A39C] flex items-center justify-center p-6 font-mono text-[15px]">
         Loading Field Mode...
       </div>
     );
@@ -97,171 +99,170 @@ export default function FieldModePage() {
 
   if (!protocol) {
     return (
-      <div className="min-h-screen bg-black text-zinc-200 flex flex-col items-center justify-center p-6 text-center space-y-4">
-        <h1 className="text-2xl font-bold text-white">Study Not Found</h1>
-        <p className="text-zinc-400 text-sm max-w-sm">
-          No saved protocol found on this device with ID &quot;{id}&quot;.
+      <div className="min-h-[100dvh] bg-[#0B0F0D] text-[#F2F4F1] flex flex-col items-center justify-center p-6 text-center space-y-4">
+        <h1 className="text-2xl font-semibold">Protocol Not Found</h1>
+        <p className="text-[15px] text-[#98A39C] max-w-sm">
+          No saved study found with ID &ldquo;{id}&rdquo; in local browser memory.
         </p>
         <Link
           href="/"
-          className="px-5 py-2.5 rounded-xl bg-zinc-800 text-white text-sm font-semibold hover:bg-zinc-700 transition"
+          className="mt-4 px-5 py-3 rounded-[4px] bg-[#F0804A] text-[#0B0F0D] font-medium text-[16px]"
         >
-          Return to Home
+          Return to Create Study
         </Link>
       </div>
     );
   }
 
-  const steps = protocol.steps;
-  const currentStep = steps[clampStepIndex(currentStepIdx, steps.length)];
+  const stepsCount = protocol.steps.length;
+  const currentStep = protocol.steps[clampStepIndex(currentStepIdx, stepsCount)];
   const isFirstStep = currentStepIdx === 0;
-  const isLastStep = currentStepIdx === steps.length - 1;
+  const isLastStep = currentStepIdx === stepsCount - 1;
+
+  const handlePrev = () => {
+    setCurrentStepIdx((prev) => Math.max(0, prev - 1));
+  };
+
+  const handleNext = () => {
+    setCurrentStepIdx((prev) => Math.min(stepsCount - 1, prev + 1));
+  };
 
   return (
-    <div className="min-h-screen bg-black text-zinc-100 flex flex-col justify-between px-4 py-6 sm:py-8 max-w-xl mx-auto selection:bg-zinc-800">
-      {/* Top Banner: Put Phone Away Notice */}
-      <header className="space-y-4 text-center border-b border-zinc-900 pb-5">
-        <div className="inline-block px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-xs text-zinc-400 uppercase tracking-widest font-semibold">
-          Field Mode &bull; Screen Off
-        </div>
-
+    <div className="min-h-[100dvh] bg-[#0B0F0D] text-[#F2F4F1] flex flex-col justify-between p-6 sm:p-10 select-none">
+      {/* Top Header: Tiny mono FIELD MODE & study title dim */}
+      <header className="flex items-center justify-between border-b border-[#232B26] pb-4">
         <div className="space-y-1">
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            Your study is ready. Put your phone away.
-          </h1>
-          <p className="text-sm text-zinc-400 max-w-md mx-auto leading-relaxed">
-            Use your Field Card or audio briefing. Always come to a complete, safe stop
-            before looking at this screen.
-          </p>
+          <div className="text-[12px] font-mono tracking-widest text-[#98A39C] uppercase">
+            FIELD MODE
+          </div>
+          <div className="text-[14px] text-[#98A39C] truncate max-w-xs sm:max-w-md font-medium">
+            {sanitizeDisplayText(protocol.title)}
+          </div>
         </div>
-
-        <div className="text-xs text-zinc-500 font-medium">
-          {protocol.title} &bull; {protocol.minutes} Minute Budget
-        </div>
+        <Link
+          href={`/study/${protocol.id}`}
+          className="text-[13px] font-mono text-[#98A39C] hover:text-[#F2F4F1] transition-colors focus-visible:outline-2 focus-visible:outline-[#F0804A]"
+        >
+          Exit
+        </Link>
       </header>
 
-      {/* Main Outdoor Display: Big Timer & Current Step */}
-      <main className="my-auto py-8 space-y-8">
-        {/* Large Prominent Countdown Timer */}
-        <section
-          aria-label="Study Timer"
-          className="text-center py-4 bg-zinc-950/80 rounded-2xl border border-zinc-900/90 p-6"
-        >
-          <div className="text-xs uppercase tracking-widest text-zinc-500 font-semibold mb-1">
-            {isTimeUp ? "Planned Time Ended" : "Time Remaining"}
-          </div>
-
+      {/* Center: Huge Timer & Large Current Step */}
+      <main className="my-auto py-8 sm:py-12 space-y-8 text-center max-w-2xl mx-auto w-full">
+        {/* Giant Monospace Timer */}
+        <div>
           <div
-            className={`font-mono text-6xl sm:text-7xl font-bold tracking-tight ${
-              isTimeUp ? "text-amber-400" : "text-white"
-            }`}
+            className="font-mono text-[#F2F4F1] font-medium leading-none tracking-tight tabular-nums select-none"
+            style={{ fontSize: "clamp(72px, 18vw, 180px)" }}
+            aria-label={`Time remaining: ${formatTimer(remainingSeconds)}`}
           >
             {formatTimer(remainingSeconds)}
           </div>
+          <p className="text-[14px] text-[#98A39C] font-mono mt-3 uppercase tracking-wider">
+            {protocol.minutes} MINUTE BUDGET
+          </p>
+        </div>
 
-          {isTimeUp ? (
-            <p className="mt-2 text-xs text-amber-300 font-medium">
-              Planned study time has finished. Take your time or return when ready.
-            </p>
-          ) : (
-            <p className="mt-2 text-xs text-zinc-500">
-              Total Budget: {protocol.minutes} minutes
-            </p>
-          )}
-        </section>
-
-        {/* Current Investigation Step */}
-        <section
-          aria-label="Current Step"
-          className="bg-zinc-950 rounded-2xl border border-zinc-800 p-6 space-y-4"
-        >
-          <div className="flex items-center justify-between text-xs">
-            <span className="font-bold uppercase tracking-wider text-emerald-400 bg-emerald-950/70 border border-emerald-900 px-2.5 py-1 rounded-full">
-              Step {currentStepIdx + 1} of {steps.length}
-            </span>
-
-            <span className="text-zinc-400 bg-zinc-900 px-2.5 py-1 rounded-full border border-zinc-800 capitalize">
-              Evidence: {currentStep.evidence} ({currentStep.required ? "Required" : "Optional"})
-            </span>
+        <div className="border-t border-[#232B26] pt-8 space-y-4">
+          {/* Step Progress in Dim Mono */}
+          <div className="text-[14px] font-mono text-[#98A39C] uppercase tracking-wider">
+            STEP {currentStepIdx + 1} / {stepsCount}
           </div>
 
-          {/* Large, high-contrast step instruction */}
-          <p className="text-xl sm:text-2xl font-semibold text-white leading-snug">
-            {currentStep.instruction}
+          {/* Current Step Instruction Large (28px - 34px) */}
+          <p className="text-[28px] sm:text-[34px] font-medium text-[#F2F4F1] leading-snug max-w-xl mx-auto">
+            {sanitizeDisplayText(currentStep.instruction)}
           </p>
 
-          {/* Minimal Step Navigation Controls */}
-          <div className="grid grid-cols-2 gap-3 pt-2">
-            <button
-              type="button"
-              disabled={isFirstStep}
-              onClick={() => setCurrentStepIdx((prev) => Math.max(0, prev - 1))}
-              className="py-3.5 px-4 rounded-xl border border-zinc-800 bg-zinc-900 text-zinc-300 font-semibold text-sm hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed transition"
-            >
-              &larr; Previous Step
-            </button>
-
-            <button
-              type="button"
-              disabled={isLastStep}
-              onClick={() => setCurrentStepIdx((prev) => Math.min(steps.length - 1, prev + 1))}
-              className="py-3.5 px-4 rounded-xl border border-zinc-700 bg-zinc-100 text-zinc-950 font-bold text-sm hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition"
-            >
-              Next Step &rarr;
-            </button>
+          <div className="text-[13px] font-mono text-[#98A39C] uppercase tracking-wider">
+            EVIDENCE: {currentStep.evidence}
+            {currentStep.required ? " (REQUIRED)" : " (OPTIONAL)"}
           </div>
-        </section>
+        </div>
 
-        {/* Audio Briefing Section */}
-        {protocol.audioScript && (
-          <section
-            aria-label="Spoken Briefing"
-            className="p-4 rounded-xl border border-zinc-900 bg-zinc-950/60 text-xs space-y-2"
+        {/* Step Navigation Controls: Min 56px Tall */}
+        <div className="grid grid-cols-2 gap-4 pt-4 max-w-md mx-auto">
+          <button
+            type="button"
+            onClick={handlePrev}
+            disabled={isFirstStep}
+            className="min-h-[56px] px-5 py-3 rounded-[4px] border border-[#232B26] text-[#F2F4F1] hover:border-[#98A39C] hover:bg-[#232B26]/40 transition-colors flex items-center justify-center gap-2 font-medium text-[16px] disabled:opacity-30 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-[#F0804A]"
           >
-            <div className="flex items-center justify-between">
-              <span className="text-zinc-400 font-semibold uppercase tracking-wider">
-                Audio Briefing
-              </span>
+            <ArrowLeft size={18} />
+            <span>Previous</span>
+          </button>
 
-              {speechSupported && (
-                <button
-                  type="button"
-                  onClick={toggleSpeech}
-                  className="px-3 py-1 rounded-lg bg-zinc-800 text-zinc-200 hover:bg-zinc-700 font-medium transition flex items-center gap-1.5"
-                >
-                  <span>{isPlayingAudio ? "Stop Audio" : "Listen to Briefing"}</span>
-                </button>
-              )}
-            </div>
-
-            <p className="text-zinc-300 italic leading-relaxed">
-              &ldquo;{protocol.audioScript}&rdquo;
-            </p>
-          </section>
-        )}
+          <button
+            type="button"
+            onClick={handleNext}
+            disabled={isLastStep}
+            className="min-h-[56px] px-5 py-3 rounded-[4px] bg-[#F0804A] text-[#0B0F0D] hover:bg-[#F0804A]/90 transition-colors flex items-center justify-center gap-2 font-semibold text-[16px] disabled:opacity-30 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-[#F0804A]"
+          >
+            <span>Next</span>
+            <ArrowRight size={18} />
+          </button>
+        </div>
       </main>
 
-      {/* Footer Navigation: Secondary "I'm back" & Return to Protocol */}
-      <footer className="border-t border-zinc-900 pt-5 space-y-3">
+      {/* Bottom Area: Calm philosophy & I'm back primary button */}
+      <footer className="space-y-4 max-w-md mx-auto w-full text-center border-t border-[#232B26] pt-6">
+        {/* Calm line */}
+        <p className="text-[14px] text-[#98A39C] leading-normal font-normal">
+          Your study is ready. Put your phone away.
+        </p>
+
+        {/* Audio Briefing button */}
+        {speechSupported && protocol.audioScript && (
+          <div className="flex justify-center items-center gap-4">
+            <button
+              type="button"
+              onClick={toggleSpeech}
+              className="inline-flex items-center gap-2 text-[14px] text-[#98A39C] hover:text-[#F2F4F1] underline transition-colors focus-visible:outline-2 focus-visible:outline-[#F0804A]"
+            >
+              {isPlayingAudio ? (
+                <>
+                  <StopCircle size={16} />
+                  <span>Stop briefing</span>
+                </>
+              ) : (
+                <>
+                  <SpeakerHigh size={16} />
+                  <span>Listen to briefing</span>
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setAudioScriptOpen(!audioScriptOpen)}
+              className="inline-flex items-center gap-1 text-[13px] text-[#98A39C] hover:text-[#F2F4F1] transition-colors focus-visible:outline-2 focus-visible:outline-[#F0804A]"
+            >
+              <span>Text</span>
+              <CaretDown size={14} className={audioScriptOpen ? "rotate-180" : ""} />
+            </button>
+          </div>
+        )}
+
+        {/* Audio Script collapsible */}
+        {audioScriptOpen && protocol.audioScript && (
+          <div className="p-3 rounded-[4px] border border-[#232B26] text-left text-[14px] text-[#98A39C] italic leading-relaxed">
+            &ldquo;{sanitizeDisplayText(protocol.audioScript)}&rdquo;
+          </div>
+        )}
+
+        {/* Primary Completion Button */}
         <button
           type="button"
-          onClick={() => router.push(`/study/${protocol.id}/return`)}
-          className="w-full py-4 px-4 rounded-xl bg-zinc-800 text-white font-semibold text-base hover:bg-zinc-700 transition flex items-center justify-center gap-2 border border-zinc-700"
+          onClick={() => {
+            if (typeof window !== "undefined" && "speechSynthesis" in window) {
+              window.speechSynthesis.cancel();
+            }
+            router.push(`/study/${protocol.id}/return`);
+          }}
+          className="w-full min-h-[52px] px-6 py-3.5 rounded-[4px] bg-[#F0804A] text-[#0B0F0D] font-semibold text-[17px] hover:bg-[#F0804A]/90 transition-colors focus-visible:outline-2 focus-visible:outline-[#F0804A]"
         >
-          <span>I&apos;m back (Finish Study)</span>
-          <span className="text-xs bg-zinc-900 text-zinc-400 px-2 py-0.5 rounded-full border border-zinc-800">
-            Next: Return
-          </span>
+          I&apos;m back (Finish Study)
         </button>
-
-        <div className="text-center">
-          <Link
-            href={`/study/${protocol.id}`}
-            className="text-xs text-zinc-500 hover:text-zinc-300 transition"
-          >
-            &larr; View Protocol &amp; Field Card
-          </Link>
-        </div>
       </footer>
     </div>
   );
