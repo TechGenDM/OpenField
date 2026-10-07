@@ -1,122 +1,181 @@
 # OpenField 🌿
 
-> **Ask a question about the real world. OpenField turns it into an honest field study.**
+> Ask a question about the real world. OpenField turns it into an honest field study.
 
-> *"AI plans. You observe. The world supplies the data. AI helps you make sense of it."*
+> "AI plans. You observe. The world supplies the data. AI helps you make sense of it."
 
-OpenField is a local-AI field study engine built on **local Gemma via Ollama**. It converts human curiosity into structured, real-world investigations, encourages screen-minimized observation, and synthesizes returned notes and photos into an honest Field Report that strictly distinguishes empirical facts from AI reasoning and unanswered questions.
+OpenField is a local-AI field study engine powered by Gemma via Ollama. It turns curiosity into a short, structured investigation, helps you step away from the screen while observing, and uses the evidence you bring back to generate a report that separates what was observed from what was inferred and what remains uncertain.
 
-Built for the **DEV Hacktoberfest 2026** challenge.
-
----
-
-## 🧭 What OpenField Is (and What It Is Not)
-
-| What OpenField Is | What OpenField Is NOT |
-|---|---|
-| **An empirical field study engine** for systematic inquiry into nature, acoustics, lighting, microclimates, and neighborhoods. | **Not a generic walk planner** or turn-by-turn navigation guide. |
-| **A structured protocol generator** that schedules 4–6 concrete observation steps within an exact time budget. | **Not a scavenger hunt** or gamified checklist with badges, streaks, and points. |
-| **An honest evidence synthesizer** evaluating only user-supplied observations and photos. | **Not a black-box species identifier** that guesses binomial names with unverified confidence. |
-| **Strictly local-first AI** running directly on your computer via Ollama. | **Not a cloud AI wrapper** with recurring API subscriptions or data collection. |
-
-OpenField supports both outdoor investigations (e.g., urban tree canopies, pavement temperatures, bird activity) and indoor studies (e.g., room acoustic reverberation, household drafts, indoor plant light gradients).
+Built for Hacktoberfest 2026.
 
 ---
 
-## 🔄 The 5-Step Empirical Loop
+## What is OpenField?
+
+Most AI tools keep the user on the screen.
+
+OpenField does the opposite.
+
+You give it a question about your surroundings. Local Gemma turns that question into a 15–60 minute field protocol. You take the protocol outside (or use it indoors), observe the real world, record notes/counts/photos, then return and let local Gemma analyze the evidence.
+
+The important part is that the AI does not get to pretend it knows what you observed.
+
+### Core Positioning
+
+OpenField is a local-AI field study engine:
 
 ```
-1. Create Study  ──>  2. Field Protocol  ──>  3. Field Mode  ──>  4. Return & Evidence  ──>  5. Field Report
-  (Question, Time,      (4-6 Concrete Steps,     (Screen-Minimizing      (Notes, Photo Upload,      (Findings, Observed,
-   Place & Category)     Safety, Audio Script)    Timer & Navigation)     Canvas EXIF Stripping)     Inferred, Uncertain)
+real-world question → structured field protocol → screen-minimized observation → evidence → local Gemma analysis → Observed / Inferred / Uncertain report
 ```
 
-1. **Create Study (`/`)**: You pose a question about your surroundings, choose a time budget (15, 30, 45, or 60 minutes), specify a location, and pick a domain (*Nature*, *Environment*, *Sound*, *Neighborhood*, or *Photography*).
-2. **Field Protocol (`/study/[id]`)**: Local Gemma generates a structured investigation plan containing 4–6 observational steps, evidence types (notes, photos, counts, measurements), a safety note, and a printable Field Card.
-3. **Field Mode (`/study/[id]/field`)**: A low-attention, screen-minimizing interface with near-black background, high-contrast typography, large countdown timer, step navigation, and optional audio briefing. Designed to reduce screen immersion while you observe.
-4. **Return & Evidence (`/study/[id]/return`)**: Upon returning, you record what you observed per step and attach photos. Photos are automatically resized to 1024px with all EXIF and GPS metadata stripped directly in browser canvas before analysis.
-5. **Field Report (`/study/[id]/report`)**: Local Gemma analyzes only the provided evidence and generates an honest report enforcing the three core pillars.
+OpenField is **not**:
+- An outdoor recommender or trail guide
+- A walking or navigation app
+- A scavenger hunt or gamified checklist
+- A generic chatbot
+- A species identifier guessing names without verified evidence
+- A cloud AI wrapper
 
 ---
 
-## ⚖️ The Honest Field Report
+## Why OpenField?
 
-OpenField enforces strict truth-in-evidence guardrails in both its AI prompts and post-generation schemas:
+**Traditional AI:**  
+Question → AI answer
 
-- **Key Findings with Evidence Citations**: Every claim in the report must explicitly cite at least one specific step ID (`step-1`) or photo ID (`photo-1`). Uncited assertions are rejected by quality validators.
-- **Observed**: Strictly what the user directly witnessed, counted, or recorded during the study. The model is forbidden from inventing measurements or counts.
-- **Inferred**: Explicit AI hypotheses and deductions derived from patterns in the evidence.
-- **Uncertain**: Explicitly highlights missing measurements, gaps in evidence, uncompleted steps, and unanswered questions. If evidence is lacking, OpenField states "not enough evidence."
-- **Next Investigation**: A logical follow-up research question suggested by the uncertainties discovered.
+**OpenField:**  
+Question → AI protocol → real-world observation → evidence → AI interpretation
+
+The model plans.  
+You observe.  
+Reality supplies the data.
 
 ---
 
-## 🖥️ Local AI Architecture
-
-OpenField requires no cloud AI or third-party inference APIs. All language understanding and multimodal vision debriefing are executed locally by Google Gemma using the official `ollama` client.
+## How It Works
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                       Your Computer                         │
-│                                                             │
-│   Next.js App Router (localhost:3000)                       │
-│    ├── Client: Local browser canvas (EXIF/GPS stripping)    │
-│    ├── Client: LocalStorage (studies, notes, cached photos) │
-│    └── Server: /api/study & /api/debrief                    │
-│                     │                                       │
-│                     ▼ HTTP (localhost:11434)                │
-│   Ollama Server (Local Gemma 4)                             │
-│    ├── Protocol generation (JSON schema-constrained)        │
-│    └── Multimodal vision debrief (notes + base64 images)    │
-└─────────────────────────────────────────────────────────────┘
+Question
+   ↓
+Field Protocol
+   ↓
+Field Mode
+   ↓
+Evidence
+   ↓
+Field Report
 ```
 
-### Supported Models
-
-| Model | Role | Resource Profile |
-|---|---|---|
-| **`gemma4:e4b`** | **Recommended Default** | Balanced latency and multimodal vision accuracy for everyday laptops. |
-| **`gemma4:e2b`** | **Fallback** | Fast and lightweight; recommended for machines with 8 GB RAM or CPU-only setups. |
-| **`gemma4:12b`** | **Optional Benchmark** | Higher-capacity reasoning for systems with dedicated GPUs and high VRAM. |
-
-### How Mobile & Field Observation Works
-- **The phone does NOT need to run Ollama.** Ollama runs on your primary workstation/laptop.
-- **Option A (Zero-Tech Field Card)**: On the protocol page, click *Save / Print Field Card* to take a physical paper printout or offline PDF with you into the field.
-- **Option B (Local LAN Access)**: Start the server with `npm run dev -- -H 0.0.0.0` and open your computer's local IP address on your phone over home Wi-Fi before stepping out. The Field Mode timer and step navigation run client-side in the browser; no connection to Ollama is needed during field observation. Return to your computer to debrief.
-
-### Screen-Minimizing Field Mode
-Field Mode is **not** an OS-level forced screen lock. Rather, it is a deliberate, calm, low-distraction user interface featuring a near-black palette, high-contrast text, a large timer, and a spoken briefing option designed to encourage pocketing the device and engaging directly with physical surroundings.
+- **Question**: You pose a question about your physical surroundings (nature, lighting, acoustics, neighborhood, or microclimates).
+- **Field Protocol**: Local Gemma produces a structured, safety-checked investigation plan scheduled to an exact time budget.
+- **Field Mode**: You step away from screens with a low-distraction countdown timer and step navigator.
+- **Evidence**: You gather raw observations—notes, tallies, measurements, and privacy-stripped photos.
+- **Field Report**: Local Gemma synthesizes your collected evidence into a grounded, honest evaluation.
 
 ---
 
-## 🔒 Privacy & Local-First Guarantees
+## The Five-Screen Experience
 
-- **No Remote AI Calls**: Photos and notes are never transmitted to external cloud providers.
-- **Client-Side EXIF & GPS Stripping**: All uploaded photos are processed locally in an off-screen HTML5 `<canvas>` element before transmission to local Ollama. Camera metadata, timestamps, and GPS coordinates are discarded.
-- **No Remote Database or Tracking**: OpenField uses browser `localStorage`. No analytics, cookies, trackers, or telemetry SDKs are loaded.
+1. **Create Study (`/`)**: Formulate your inquiry, select a time budget (15, 30, 45, or 60 minutes), enter a location, and choose an investigation domain.
+2. **Field Protocol (`/study/[id]`)**: Review 4–6 concrete protocol steps, evidence requirements, safety guidance, and access the printable **Field Card**.
+3. **Field Mode (`/study/[id]/field`)**: A screen-minimizing, low-distraction interface with high-contrast text, a large countdown timer, step navigation, and an optional spoken briefing.
+4. **Return & Evidence (`/study/[id]/return`)**: Enter notes and counts per step, and attach photos. Images undergo client-side resizing (max 1024px) and complete EXIF/GPS metadata stripping in an HTML5 canvas before debrief processing.
+5. **Field Report (`/study/[id]/report`)**: A debrief generated by local Gemma featuring evidence citations, separation of Observed / Inferred / Uncertain findings, and a suggested next investigation question.
 
 ---
 
-## 🚀 Quickstart
+## Honest Field Report
+
+Honesty is the core of OpenField. Rather than generating an ungrounded summary, local Gemma is strictly constrained to separate findings into three categories:
+
+### Observed
+What the user actually recorded, counted, heard, or measured during the study. The model is strictly forbidden from inventing measurements, species, locations, or numbers that were not supplied.
+
+### Inferred
+Explicit AI reasoning, hypotheses, or deductions logically derived from the collected evidence.
+
+### Uncertain
+Missing measurements, unsupported claims, incomplete observations, and evidence gaps. If evidence is insufficient, the correct result is "not enough evidence."
+
+### Evidence Citations
+Every finding must cite valid step or photo evidence references (e.g., `step-1`, `photo-1`). Claims without evidence are rejected during validation.
+
+### Next Investigation
+Every report concludes with a logical follow-up research question suggested by the uncertainties discovered in the data.
+
+---
+
+## Local-First Architecture
+
+All model inference runs locally on your machine via Ollama. No remote inference API or cloud service is required.
+
+```
+Browser (localhost:3000)
+   ↓ HTTP
+Next.js Server Routes (/api/study, /api/debrief)
+   ↓ HTTP (localhost:11434)
+Ollama Server
+   ↓
+Local Gemma Model
+```
+
+### Field Observation
+- **Printable Field Card**: Print or save the Field Card before heading out for a zero-screen investigation.
+- **Phone Field Mode**: Load the application on your phone over local Wi-Fi before stepping out.
+- **Ollama stays on your computer**: Ollama runs on your desktop or laptop and is **not** required on the phone during field observation.
+- **Debrief on return**: The debrief analysis takes place when you return to your computer and submit your evidence.
+
+---
+
+## Privacy
+
+OpenField enforces privacy strictly on the local machine:
+
+- **Local Inference**: AI inference runs locally through Ollama. No cloud AI provider is required.
+- **Client-Side EXIF & GPS Stripping**: All photo metadata, GPS coordinates, and camera markers are stripped in an off-screen browser canvas before transmission to local Ollama.
+- **Client-Side Resizing**: Photos are downscaled to 1024px directly in the browser.
+- **Local Storage**: Notes, protocols, and cached images reside only in browser `localStorage`.
+- **No Remote Database**: No remote database, user accounts, cookies, analytics, or tracking services are used.
+
+---
+
+## Quickstart
 
 ### Prerequisites
-- [Node.js](https://nodejs.org) (v18.18+ or v20+)
-- [Ollama](https://ollama.com) installed and running
 
-### 1. Pull the Model
+- [Node.js](https://nodejs.org/) (v18.18+ or v20+)
+- [Ollama](https://ollama.com/)
+
+### 1. Clone
+
+```bash
+git clone https://github.com/TechGenDM/OpenField.git
+cd OpenField
+```
+
+### 2. Pull Gemma
+
 ```bash
 ollama pull gemma4:e4b
 ```
 
-### 2. Configure Environment
+### 3. Configure
+
 ```bash
 cp .env.example .env.local
 ```
-*(The default configuration points to `http://localhost:11434` with model `gemma4:e4b`.)*
 
-### 3. Install & Run
+*(By default, `.env.example` points to `OLLAMA_HOST=http://localhost:11434` and `OPENFIELD_MODEL=gemma4:e4b`.)*
+
+### 4. Install
+
 ```bash
 npm install
+```
+
+### 5. Run
+
+```bash
 npm run dev
 ```
 
@@ -124,42 +183,82 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
-## 🧪 Testing & Verification
+## Supported Models
 
-OpenField includes comprehensive automated tests covering schema validation, safety rules, prompt quality, citation checking, and client image processing:
+| Model | Role | Description |
+|---|---|---|
+| **`gemma4:e4b`** | Recommended default | Balanced multimodal vision debriefing and reasoning. |
+| **`gemma4:e2b`** | Lightweight fallback | Lower resource requirements for lightweight setups or CPU execution. |
+| **`gemma4:12b`** | Optional benchmark | Higher-capacity reasoning for systems with dedicated GPU VRAM. |
+
+Generation latency depends heavily on hardware, model size, context, and whether Ollama needs to load the model. Local generation can take from tens of seconds to several minutes.
+
+---
+
+## Field Usage
+
+OpenField supports two practical ways to observe in the field:
+
+### Offline Field Card
+Click **Save / Print Field Card** on the protocol page to print a physical paper card or save an offline file. Take it with you, take notes by hand, and enter your findings when you return.
+
+### Phone Field Mode
+Open the app on your phone over your local network (`npm run dev -- -H 0.0.0.0`) before heading out. Field Mode's countdown timer and step navigation run client-side in the browser and do not require Ollama during observation. Return to your computer to run the Gemma debrief.
+
+---
+
+## Verification
+
+Run the validation suite locally:
 
 ```bash
-# Run unit & quality test suite (72 tests)
 npm test
-
-# Run ESLint checks
 npm run lint
-
-# Run strict TypeScript typecheck
 npm run typecheck
-
-# Verify production build
 npm run build
+```
+
+Current verified status:
+- **72/72 tests passing** (Vitest unit and quality tests)
+- **ESLint clean** (0 warnings, 0 errors)
+- **TypeScript clean** (strict mode, 0 errors)
+- **Production build successful** (`next build`)
+
+The complete MVP flow has been manually verified:
+```
+Create Study → Field Protocol → Field Mode → Return & Evidence → Gemma multimodal debrief → Field Report
 ```
 
 ---
 
-## ⚠️ Current MVP Limitations
+## Current MVP Scope / Limitations
 
-- **Local Storage Quota**: Photos and studies are stored in browser `localStorage`. To prevent quota overflows, attached photos are downscaled to 1024px, and storage quota exceptions are caught gracefully.
-- **Inference Latency**: Generation latency depends heavily on hardware, model size, and workload. Lower-resource machines can use `gemma4:e2b`.
-- **Single Active Session**: The MVP stores studies locally per browser profile; there is no cloud synchronization across disparate devices.
+OpenField v0.1.0 is a focused, self-contained MVP:
 
----
-
-## 🎃 Hacktoberfest 2026 & Contributing
-
-OpenField participates in **Hacktoberfest 2026**. We welcome community contributions that improve accessibility, print formatting, test coverage, and documentation without expanding architectural bloat.
-
-Please review [CONTRIBUTING.md](CONTRIBUTING.md) for development rules, scope guardrails, and conventional commit guidelines before opening a pull request.
+- **Browser `localStorage`**: Data is stored locally in the browser profile. There is no cloud synchronization.
+- **Hardware-Dependent Latency**: Local model speed depends directly on host CPU/GPU performance and Ollama memory caching.
+- **Single Active Session**: Studies are managed locally per browser profile without user accounts.
+- **Screen-Minimizing Field Mode**: Field Mode provides a calm, high-contrast, low-distraction interface designed to reduce phone usage; it is not an OS-level screen lock.
+- **No Accounts or Databases**: The MVP intentionally has no user accounts, external databases, or social features.
 
 ---
 
-## 📄 License
+## Hacktoberfest & Contributing
 
-OpenField is licensed under the [MIT License](LICENSE).
+OpenField is participating in **Hacktoberfest 2026**.
+
+We welcome focused contributions around:
+- **Accessibility**: Screen reader semantics, ARIA labels, and high-contrast refinements
+- **Printable Field Card**: Print stylesheet improvements and card layout optimizations
+- **Test Coverage**: Boundary cases for time budgets, safety violations, and citation validation
+- **Image & Storage Edge Cases**: Handling localStorage quota limits, EXIF anomalies, and orientation handling
+- **Report Export**: Clean Markdown/JSON export options for completed reports
+- **Documentation**: Clarifications, setup troubleshooting, and testing instructions
+
+Please review [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines, commit conventions, and project guardrails. OpenField intentionally avoids architectural bloat—please review the project guardrails before proposing new infrastructure or dependencies.
+
+---
+
+## License
+
+OpenField is open-source software licensed under the [MIT License](LICENSE).
