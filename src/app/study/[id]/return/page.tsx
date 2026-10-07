@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import React, { useEffect, useState, useTransition } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -18,6 +18,14 @@ import {
   processImageFile,
   validateImageFile,
 } from "@/lib/image";
+import { sanitizeDisplayText, formatPlural } from "@/lib/ui/sanitize";
+import { StageTrail } from "@/components/ui/StageTrail";
+import { Textarea } from "@/components/ui/Textarea";
+import { Button } from "@/components/ui/Button";
+import { Callout } from "@/components/ui/Callout";
+import { ElapsedLoader } from "@/components/ui/ElapsedLoader";
+import { Tag } from "@/components/ui/Tag";
+import { Camera, Trash, ArrowLeft } from "@phosphor-icons/react";
 
 interface LoadedPhoto {
   id: string;
@@ -60,25 +68,24 @@ export default function ReturnPage() {
 
   if (loadingProtocol) {
     return (
-      <div className="min-h-[50vh] flex items-center justify-center">
-        <p className="text-sm text-zinc-500 animate-pulse">Loading study protocol...</p>
+      <div className="py-16 text-center text-[#44504A] font-mono text-[15px]">
+        Loading study protocol...
       </div>
     );
   }
 
   if (!protocol) {
     return (
-      <div className="max-w-xl mx-auto py-12 px-4 text-center space-y-4">
-        <h1 className="text-xl font-bold text-zinc-900">Protocol Not Found</h1>
-        <p className="text-sm text-zinc-600">
+      <div className="max-w-md mx-auto py-16 text-center space-y-4">
+        <h1 className="text-2xl font-semibold text-[#101613]">Protocol Not Found</h1>
+        <p className="text-[15px] text-[#44504A]">
           We could not find protocol &ldquo;{id}&rdquo; in your browser storage.
         </p>
-        <Link
-          href="/"
-          className="inline-block px-4 py-2 rounded-xl bg-zinc-900 text-sm font-semibold text-white hover:bg-zinc-800 transition"
-        >
-          Create a New Study
-        </Link>
+        <div className="pt-2">
+          <Link href="/">
+            <Button variant="primary">Create a New Study</Button>
+          </Link>
+        </div>
       </div>
     );
   }
@@ -91,7 +98,7 @@ export default function ReturnPage() {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Reset previous file picker input value so re-selecting same file triggers change
+    // Reset previous file picker input value
     event.target.value = "";
     setUploadError(null);
 
@@ -223,171 +230,199 @@ export default function ReturnPage() {
 
   const totalNotesCount = Object.values(notes).filter((n) => n && n.trim().length > 0).length;
   const totalPhotosCount = photos.length;
+  const totalMeasurementsCount = Object.values(measuredFlags).filter(Boolean).length;
 
   return (
-    <div className="max-w-2xl mx-auto space-y-8 pb-16">
-      {/* Return Header */}
-      <div className="space-y-3 pt-2">
-        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-emerald-800">
-          <svg
-            className="w-4 h-4 text-emerald-700"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            aria-hidden="true"
+    <div className="space-y-8 max-w-3xl mx-auto pb-16">
+      {/* 4-Stage Survey Progress Trail */}
+      <StageTrail currentStage="return" />
+
+      {/* Screen Header */}
+      <div className="space-y-3 border-b border-[#D3D9D3] pb-6">
+        <div className="flex items-center justify-between">
+          <Link
+            href={`/study/${protocol.id}/field`}
+            className="inline-flex items-center gap-2 text-[14px] font-medium text-[#44504A] hover:text-[#101613] transition-colors"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2.5}
-              d="M5 13l4 4L19 7"
-            />
-          </svg>
-          <span>Screen 4 of 5 &bull; Return from the Field</span>
+            <ArrowLeft size={16} />
+            <span>Back to Field Mode</span>
+          </Link>
+          <span className="text-[12px] font-mono uppercase tracking-wider text-[#44504A]">
+            EVIDENCE RETURN
+          </span>
         </div>
-        <h1 className="text-3xl font-extrabold tracking-tight text-zinc-950">
+
+        <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-[#101613]">
           Record Field Evidence
         </h1>
-        <p className="text-sm text-zinc-600">
-          Welcome back. Enter what you observed, heard, or measured during the study.
-          Attach any photos—they are automatically resized to 1024px with all EXIF and GPS coordinates stripped before analysis.
+        <p className="text-[17px] text-[#44504A] leading-relaxed">
+          Welcome back. Enter what you observed, heard, or counted during the study.
+          Attach any photos: they are automatically resized to 1024px with all EXIF and GPS coordinates stripped before analysis.
         </p>
-      </div>
 
-      {/* Protocol Summary Card */}
-      <div className="p-4 rounded-2xl bg-zinc-50 border border-zinc-200/80 space-y-2">
-        <div className="flex items-center justify-between text-xs text-zinc-500">
-          <span className="font-medium text-zinc-700">{protocol.title}</span>
-          <span>{protocol.minutes} min &bull; {protocol.type}</span>
-        </div>
-        <p className="text-sm font-semibold text-zinc-900">
-          &ldquo;{protocol.researchQuestion}&rdquo;
-        </p>
+        {/* Study Context Quote */}
+        <blockquote className="border-l-[3px] border-l-[#B8461A] pl-4 py-1 mt-4">
+          <span className="block text-[12px] font-mono uppercase tracking-wider text-[#44504A]">
+            Investigation Question
+          </span>
+          <p className="text-[17px] font-medium text-[#101613] mt-0.5">
+            &ldquo;{sanitizeDisplayText(protocol.researchQuestion)}&rdquo;
+          </p>
+        </blockquote>
       </div>
 
       {/* Alerts */}
       {uploadError && (
-        <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-sm text-red-800 flex items-start justify-between">
-          <span>{uploadError}</span>
-          <button
-            onClick={() => setUploadError(null)}
-            className="text-red-600 hover:text-red-900 font-bold ml-2"
-            type="button"
-          >
-            &times;
-          </button>
-        </div>
+        <Callout
+          variant="signal"
+          title="Photo Upload Notice"
+        >
+          <div className="flex justify-between items-start">
+            <span>{uploadError}</span>
+            <button
+              onClick={() => setUploadError(null)}
+              className="text-[#B8461A] font-semibold text-sm ml-2"
+              type="button"
+            >
+              Dismiss
+            </button>
+          </div>
+        </Callout>
       )}
 
       {quotaWarning && (
-        <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-900 space-y-1">
-          <p className="font-semibold">Notice: Browser Storage Quota</p>
-          <p>{quotaWarning}</p>
-        </div>
+        <Callout
+          variant="signal"
+          title="Browser Storage Quota"
+        >
+          {quotaWarning}
+        </Callout>
       )}
 
-      {/* Observation Steps Form */}
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="space-y-4">
+      {error && (
+        <Callout
+          variant="signal"
+          title="Report Generation Error"
+        >
+          <p>{error.message}</p>
+          {error.details && (
+            <p className="text-[13px] font-mono text-[#44504A] mt-1">{error.details}</p>
+          )}
+        </Callout>
+      )}
+
+      {/* Observation Steps Form: Ruled list of 5 evidence entries */}
+      <form onSubmit={handleSubmit} className="space-y-8">
+        <div className="divide-y divide-[#D3D9D3] border-y border-[#D3D9D3]">
           {protocol.steps.map((step, idx) => {
             const stepPhotos = photos.filter((p) => p.stepId === step.id);
             const isProcessingThisStep = processingStepId === step.id;
 
             return (
-              <div
-                key={step.id}
-                className="p-5 rounded-2xl border border-zinc-200 bg-white shadow-sm space-y-4 transition hover:border-zinc-300"
-              >
-                {/* Step header */}
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-900 text-white text-xs font-bold">
-                      {idx + 1}
+              <div key={step.id} className="py-6 space-y-4">
+                {/* Step header: Big numeral + Tag */}
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-baseline gap-3">
+                    <span className="font-mono text-2xl sm:text-3xl font-semibold text-[#44504A] select-none">
+                      {String(idx + 1).padStart(2, "0")}
                     </span>
-                    <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wide">
-                      {step.id}
+                    <span className="text-[13px] font-mono uppercase tracking-wider text-[#44504A]">
+                      STEP
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 text-xs">
-                    <span className="px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-700 font-medium">
-                      Evidence: {step.evidence}
-                    </span>
-                    {step.required && (
-                      <span className="text-amber-800 font-medium">Required</span>
-                    )}
-                  </div>
+
+                  <Tag variant={step.required ? "signal" : "default"}>
+                    {step.evidence.toUpperCase()}
+                    {step.required ? ", required" : ", optional"}
+                  </Tag>
                 </div>
 
-                {/* Instruction */}
-                <p className="text-sm font-medium text-zinc-900">
-                  {step.instruction}
+                {/* Instruction in dim 16px */}
+                <p className="text-[16px] text-[#44504A] leading-relaxed">
+                  {sanitizeDisplayText(step.instruction)}
                 </p>
 
-                {/* Observation Note Input */}
-                <div className="space-y-1.5">
-                  <label
-                    htmlFor={`note-${step.id}`}
-                    className="block text-xs font-medium text-zinc-700"
-                  >
-                    Your Observations & Notes
-                  </label>
-                  <textarea
-                    id={`note-${step.id}`}
-                    rows={2}
-                    value={notes[step.id] || ""}
-                    onChange={(e) => handleNoteChange(step.id, e.target.value)}
-                    placeholder="Describe what you actually saw, heard, or counted..."
-                    className="w-full px-3 py-2 text-sm rounded-xl border border-zinc-300 bg-zinc-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-zinc-900 transition resize-y"
-                  />
-                </div>
+                {/* Textarea labeled: "What you saw, counted or measured" */}
+                <Textarea
+                  id={`note-${step.id}`}
+                  label="What you saw, counted or measured"
+                  placeholder="Record factual observations..."
+                  value={notes[step.id] || ""}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleNoteChange(step.id, e.target.value)}
+                  disabled={isSubmitting}
+                />
 
-                {/* Optional Measured Toggle */}
+                {/* Measurement Checkbox with accessible SVG icon for regression test suite */}
                 {(step.evidence === "measurement" || step.evidence === "count") && (
-                  <div className="flex items-center gap-2 text-xs text-zinc-700">
-                    <input
-                      type="checkbox"
+                  <div className="flex items-center gap-3 pt-1">
+                    <button
+                      type="button"
                       id={`measured-${step.id}`}
-                      checked={measuredFlags[step.id] || false}
-                      onChange={() => handleMeasuredToggle(step.id)}
-                      className="rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900"
-                    />
-                    <label htmlFor={`measured-${step.id}`} className="cursor-pointer">
+                      role="checkbox"
+                      aria-checked={measuredFlags[step.id] || false}
+                      onClick={() => handleMeasuredToggle(step.id)}
+                      className={`w-6 h-6 rounded-[4px] border flex items-center justify-center transition-colors focus-visible:outline-2 focus-visible:outline-[#B8461A] focus-visible:outline-offset-2 ${
+                        measuredFlags[step.id]
+                          ? "bg-[#101613] border-[#101613]"
+                          : "bg-[#FAFBF9] border-[#D3D9D3] hover:border-[#101613]"
+                      }`}
+                    >
+                      {measuredFlags[step.id] && (
+                        <svg
+                          className="w-4 h-4 text-[#FAFBF9]"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          aria-hidden="true"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2.5}
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                      )}
+                    </button>
+                    <label
+                      htmlFor={`measured-${step.id}`}
+                      onClick={() => handleMeasuredToggle(step.id)}
+                      className="cursor-pointer text-[15px] text-[#101613] select-none"
+                    >
                       Physical measurement or structured count recorded in this step
                     </label>
                   </div>
                 )}
 
-                {/* Attached Photos List */}
+                {/* Attached Photos Thumbnail Grid with caption BELOW thumbnail */}
                 {stepPhotos.length > 0 && (
-                  <div className="space-y-2 pt-1">
-                    <p className="text-xs font-medium text-zinc-600">
+                  <div className="space-y-2 pt-2">
+                    <p className="text-[13px] font-mono uppercase tracking-wider text-[#44504A]">
                       Attached Photos ({stepPhotos.length}):
                     </p>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                       {stepPhotos.map((photo) => (
-                        <div
-                          key={photo.id}
-                          className="relative group rounded-xl overflow-hidden border border-zinc-200 bg-zinc-100 aspect-square flex flex-col"
-                        >
-                          {/* Thumbnail preview */}
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={photo.dataUrl}
-                            alt={`Field photo for ${step.id}`}
-                            className="w-full h-full object-cover"
-                          />
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
+                        <div key={photo.id} className="space-y-1.5">
+                          <div className="relative rounded-[4px] border border-[#D3D9D3] overflow-hidden bg-[#FAFBF9] aspect-square group">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={photo.dataUrl}
+                              alt={`Field photo for ${step.id}`}
+                              className="w-full h-full object-cover"
+                            />
                             <button
                               type="button"
                               onClick={() => handleRemovePhoto(photo.id)}
-                              className="px-2 py-1 text-xs font-semibold bg-red-600 text-white rounded-lg hover:bg-red-700 shadow"
+                              aria-label={`Remove photo ${photo.id}`}
+                              className="absolute top-2 right-2 p-1.5 bg-[#FAFBF9] border border-[#D3D9D3] text-[#B8461A] rounded-[4px] hover:bg-[#B8461A] hover:text-[#FAFBF9] transition-colors shadow-sm"
                             >
-                              Remove
+                              <Trash size={14} />
                             </button>
                           </div>
-                          <div className="absolute bottom-1 left-1 right-1 flex justify-between items-center text-[10px] bg-black/60 text-white px-1.5 py-0.5 rounded backdrop-blur-sm">
-                            <span className="truncate">{photo.id}</span>
-                            <span className="text-emerald-300 font-mono">EXIF clean</span>
+                          {/* Caption strictly BELOW thumbnail */}
+                          <div className="text-[12px] font-mono text-[#44504A] space-y-0.5">
+                            <div className="truncate">{photo.id}</div>
+                            <div className="text-[#101613] font-medium">EXIF removed</div>
                           </div>
                         </div>
                       ))}
@@ -395,35 +430,17 @@ export default function ReturnPage() {
                   </div>
                 )}
 
-                {/* Photo Upload Input */}
+                {/* Add Photo Action */}
                 <div className="pt-1">
                   <label
                     htmlFor={`photo-input-${step.id}`}
-                    className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-zinc-300 bg-white hover:bg-zinc-50 text-xs font-medium text-zinc-800 cursor-pointer transition ${
+                    className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-[4px] border border-[#D3D9D3] bg-[#FAFBF9] hover:bg-[#F2F4F1] hover:border-[#101613] text-[14px] font-medium text-[#101613] cursor-pointer transition-colors focus-within:outline-2 focus-within:outline-[#B8461A] ${
                       isProcessingThisStep ? "opacity-50 pointer-events-none" : ""
                     }`}
                   >
-                    <svg
-                      className="w-4 h-4 text-zinc-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
-                      />
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
-                      />
-                    </svg>
+                    <Camera size={16} />
                     <span>
-                      {isProcessingThisStep ? "Stripping EXIF & Resizing..." : "Add Photo"}
+                      {isProcessingThisStep ? "Processing photo..." : "Attach Photo"}
                     </span>
                   </label>
                   <input
@@ -440,85 +457,30 @@ export default function ReturnPage() {
           })}
         </div>
 
-        {/* Evidence Tally Card */}
-        <div className="p-4 rounded-xl bg-zinc-100/70 text-xs text-zinc-600 flex items-center justify-between">
+        {/* Evidence Tally as one plain line with correct plurals */}
+        <div className="py-3 px-4 rounded-[4px] bg-[#FAFBF9] border border-[#D3D9D3] text-[14px] font-mono text-[#44504A]">
           <span>
-            Evidence tallied: <strong className="text-zinc-900">{totalNotesCount} notes</strong>,{" "}
-            <strong className="text-zinc-900">{totalPhotosCount} photos</strong>
+            EVIDENCE TALLIED: {formatPlural(totalNotesCount, "note")}, {formatPlural(totalPhotosCount, "photo")}
+            {totalMeasurementsCount > 0 ? `, ${formatPlural(totalMeasurementsCount, "measurement")}` : ""}
           </span>
-          <span className="text-zinc-500">Local Gemma Multimodal Vision</span>
         </div>
 
-        {/* Error Card */}
-        {error && (
-          <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-sm text-red-900 space-y-2">
-            <div className="font-semibold flex items-center gap-2">
-              <span>Debrief Generation Failed ({error.code})</span>
-            </div>
-            <p>{error.message}</p>
-            {error.details && (
-              <p className="text-xs font-mono bg-red-100/60 p-2 rounded text-red-800 break-words">
-                {error.details}
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Submit Action */}
-        <div className="pt-2 space-y-3">
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full py-3.5 px-6 rounded-2xl bg-zinc-950 text-white font-semibold text-base shadow-sm hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition flex flex-col items-center justify-center"
-          >
-            {isSubmitting ? (
-              <span className="flex items-center gap-2">
-                <svg
-                  className="animate-spin h-5 w-5 text-white"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8v8H4z"
-                  />
-                </svg>
-                <span>Analyzing Field Evidence with Local Gemma...</span>
-              </span>
-            ) : (
-              <span>Finish Study &amp; Generate Field Report</span>
-            )}
-          </button>
-
-          {isSubmitting && (
-            <p className="text-center text-xs text-zinc-500 animate-pulse">
-              Running honest debriefing on your machine. Local Gemma is strictly categorizing observed vs. inferred findings.
-            </p>
+        {/* Finish Action with Calm Elapsed Timer */}
+        <div className="pt-2">
+          {isSubmitting ? (
+            <ElapsedLoader
+              label="Gemma is analyzing observations"
+              subtext="Synthesizing multi-photo evidence and writing honest report. This usually takes about a minute."
+            />
+          ) : (
+            <Button
+              type="submit"
+              size="lg"
+              className="w-full"
+            >
+              Generate Honest Field Report
+            </Button>
           )}
-
-          <div className="flex justify-between items-center text-xs text-zinc-500 pt-2">
-            <Link
-              href={`/study/${protocol.id}/field`}
-              className="hover:text-zinc-900 transition underline underline-offset-4"
-            >
-              &larr; Back to Field Mode
-            </Link>
-            <Link
-              href={`/study/${protocol.id}`}
-              className="hover:text-zinc-900 transition underline underline-offset-4"
-            >
-              View Field Card
-            </Link>
-          </div>
         </div>
       </form>
     </div>
