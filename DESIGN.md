@@ -124,3 +124,23 @@ To ensure honesty is legible even in monochrome or under direct sunlight, the th
 ## 9. Zero Em-Dash & En-Dash Rule
 * Absolutely zero em dashes (`—`) or en dashes (`–`) anywhere in user-visible text (headlines, body, buttons, tags, or AI output).
 * A pure utility function `sanitizeDisplayText(text: string): string` in `src/lib/ui/sanitize.ts` cleans all visible output at display time without altering underlying database / model payloads.
+
+---
+
+## 10. Homepage Visual Source of Truth (Reference Fidelity)
+* **Top Navigation Bar:**
+  * Left: `OpenField` wordmark + `LOCAL AI •` badge with terracotta dot `#C0562F`.
+  * Center: Navigation pill tabs (`Plan`, `Field`, `Return`, `Report`) with `Plan` active in tinted peach `#FAF0E8` and leaf icon.
+  * Right: Terracotta sun icon with stacked copy ("Screen-off outdoor science" / "Explore nature. Notice more.") and `N` avatar circle.
+* **Left Canvas Layer:**
+  * High-fidelity golden-hour outdoor landscape photograph (`public/images/landscape.jpg`) anchored to the bottom-left, with multi-directional organic gradient masks fading seamlessly into the warm paper background.
+  * Headline: Two-tone display heading with `Create` in ink `#111815` and `Field Study` in terracotta `#C0562F`.
+  * Technical Specs: Monospace metadata entries (`SURVEY SHEET: 01`, `ENGINE: LOCAL GEMMA`, `DATA RETENTION: ON DEVICE ONLY`) paired with Phosphor outline icons (`Article`, `Gear`, `Database`).
+* **Right Form Card:**
+  * Pure white elevated container (`rounded-2xl`, border `#DFE2DC`, soft shadow).
+  * Inputs: Icon-prefixed fields (`Leaf` for Question with `0 / 200` counter and terracotta border highlight; `MapPin` for Location with helper text).
+  * Time Budget: 4-segment control with clock icons; `30 min` active with solid terracotta fill and white text.
+  * Study Types: 5 option cards with icons, terracotta left-border accent on active selection (`Nature`), and radio button circles on the right.
+  * Action: Full-width terracotta button `Create Field Study ->` with `ArrowRight` icon.
+* **Footer:**
+  * Left `N` avatar, center privacy statement, right leaf badge ("A calmer, more observant you.").
