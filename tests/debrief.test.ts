@@ -230,6 +230,39 @@ describe("Debrief & Field Report Generation", () => {
       }
     });
 
+    it("parses JSON wrapped in markdown code fences", () => {
+      const fenced = "```json\n" + JSON.stringify(sampleValidReport) + "\n```";
+      const res = validateRawReport(fenced, validStepIds, validPhotoIds);
+      expect(res.success).toBe(true);
+      if (res.success) {
+        expect(res.data.findings.length).toBe(2);
+      }
+    });
+
+    it("parses JSON with conversational preambles and braces inside string values", () => {
+      const reportWithBracesInString: FieldReport = {
+        ...sampleValidReport,
+        findings: [
+          {
+            claim: "Surface has {very warm} patches under direct sun.",
+            evidenceRefs: ["step-1"],
+            confidence: "high",
+          },
+        ],
+      };
+      const text =
+        "Here is your final field report:\n```json\n" +
+        JSON.stringify(reportWithBracesInString) +
+        "\n```\nHope this outdoor study was insightful!";
+      const res = validateRawReport(text, validStepIds, validPhotoIds);
+      expect(res.success).toBe(true);
+      if (res.success) {
+        expect(res.data.findings[0].claim).toBe(
+          "Surface has {very warm} patches under direct sun."
+        );
+      }
+    });
+
     it("fails on malformed JSON", () => {
       const res = validateRawReport("not json", validStepIds, validPhotoIds);
       expect(res.success).toBe(false);
@@ -283,6 +316,56 @@ describe("Debrief & Field Report Generation", () => {
       expect(userMsg?.images).toEqual(["dGVzdC1jYW5vcHk=", "dGVzdC1sZWF2ZXM="]);
     });
 
+    it("succeeds when debrief cites 'step-4' on a protocol that originally had inconsistent step IDs", async () => {
+      // Protocol with legacy non-canonical step IDs
+      const legacyProtocol: FieldProtocol = {
+        ...sampleProtocol,
+        steps: [
+          { id: "step-1", instruction: "Observe shade", evidence: "note", required: true },
+          { id: "2", instruction: "Take canopy photo", evidence: "photo", required: true },
+          { id: "3", instruction: "Check damp ground", evidence: "note", required: true },
+          { id: "4", instruction: "Photograph leaf density", evidence: "photo", required: true },
+        ],
+      };
+
+      const legacyObservations: Observation[] = [
+        { stepId: "step-1", note: "Sunny" },
+        { stepId: "2", photoIds: ["photo-canopy-1"] },
+        { stepId: "3", note: "Damp" },
+        { stepId: "4", photoIds: ["photo-leaves-2"] },
+      ];
+
+      // Model cites canonical step-4
+      const reportCitingStep4: FieldReport = {
+        ...sampleValidReport,
+        findings: [
+          {
+            claim: "Canopy density observed in step 4 correlates with cooler ground.",
+            evidenceRefs: ["step-4"],
+            confidence: "high",
+          },
+        ],
+      };
+
+      vi.spyOn(ollama, "chat").mockResolvedValueOnce({
+        message: {
+          role: "assistant",
+          content: JSON.stringify(reportCitingStep4),
+        },
+      } as unknown as Awaited<ReturnType<typeof ollama.chat>>);
+
+      const res = await createReport({
+        protocol: legacyProtocol,
+        observations: legacyObservations,
+        photos: samplePhotos,
+      });
+
+      expect(res.success).toBe(true);
+      if (res.success) {
+        expect(res.report.findings[0].evidenceRefs).toEqual(["step-4"]);
+      }
+    });
+
     it("retries once when initial output violates citation checks, then succeeds", async () => {
       // First attempt outputs invalid citation "step-unknown"
       const invalidReportAttempt = {
@@ -320,10 +403,44 @@ describe("Debrief & Field Report Generation", () => {
       expect(res.success).toBe(true);
       expect(chatSpy).toHaveBeenCalledTimes(2);
 
-      // Verify retry prompt included error details
+      // Verify retry prompt included error details and correction requirements
       const retryCallArgs = chatSpy.mock.calls[1][0];
       const retryMsg = retryCallArgs.messages?.find((m) => m.role === "user");
       expect(retryMsg?.content).toContain("step-unknown");
+      expect(retryMsg?.content).toContain("CORRECTION REQUIREMENTS");
+    });
+
+    it("succeeds when first attempt has malformed JSON and retry outputs valid JSON", async () => {
+      // First attempt outputs malformed JSON (unterminated string)
+      const malformedJson = '{"findings": [{"claim": "Unterminated claim';
+
+      const chatSpy = vi
+        .spyOn(ollama, "chat")
+        .mockResolvedValueOnce({
+          message: {
+            role: "assistant",
+            content: malformedJson,
+          },
+        } as unknown as Awaited<ReturnType<typeof ollama.chat>>)
+        .mockResolvedValueOnce({
+          message: {
+            role: "assistant",
+            content: JSON.stringify(sampleValidReport),
+          },
+        } as unknown as Awaited<ReturnType<typeof ollama.chat>>);
+
+      const res = await createReport({
+        protocol: sampleProtocol,
+        observations: sampleObservations,
+        photos: samplePhotos,
+      });
+
+      expect(res.success).toBe(true);
+      expect(chatSpy).toHaveBeenCalledTimes(2);
+
+      const retryCallArgs = chatSpy.mock.calls[1][0];
+      const retryMsg = retryCallArgs.messages?.find((m) => m.role === "user");
+      expect(retryMsg?.content).toContain("JSON parse error");
     });
 
     it("returns typed INVALID_MODEL_OUTPUT error when both attempts fail", async () => {
@@ -362,6 +479,34 @@ describe("Debrief & Field Report Generation", () => {
       if (!res.success) {
         expect(res.error.code).toBe("INVALID_MODEL_OUTPUT");
         expect(res.error.details).toContain("step-never-existed");
+      }
+    });
+
+    it("returns typed INVALID_MODEL_OUTPUT error when both attempts produce malformed JSON", async () => {
+      vi.spyOn(ollama, "chat")
+        .mockResolvedValueOnce({
+          message: {
+            role: "assistant",
+            content: "Malformed JSON attempt 1",
+          },
+        } as unknown as Awaited<ReturnType<typeof ollama.chat>>)
+        .mockResolvedValueOnce({
+          message: {
+            role: "assistant",
+            content: "Malformed JSON attempt 2",
+          },
+        } as unknown as Awaited<ReturnType<typeof ollama.chat>>);
+
+      const res = await createReport({
+        protocol: sampleProtocol,
+        observations: sampleObservations,
+        photos: samplePhotos,
+      });
+
+      expect(res.success).toBe(false);
+      if (!res.success) {
+        expect(res.error.code).toBe("INVALID_MODEL_OUTPUT");
+        expect(res.error.details).toContain("JSON parse error");
       }
     });
 

@@ -189,23 +189,31 @@ Please write an honest Field Report adhering to all rules:
 
 /**
  * Builds the retry prompt if the model's debrief output failed validation or citation checks.
+ * Enforces Requirement D: output only one JSON object, no markdown/fences, exact canonical IDs,
+ * no hallucinated citations or measurements, and includes the exact validation error.
  */
 export function buildDebriefRetryPrompt(
   originalUserPrompt: string,
-  rawOutput: string,
-  validationError: string
+  validationError: string,
+  canonicalStepIds: string[],
+  photoIds: string[] = []
 ): string {
+  const allowedCitations = [
+    ...canonicalStepIds,
+    ...(photoIds.length > 0 ? photoIds : []),
+  ].join(", ");
+
   return `${originalUserPrompt}
 
 IMPORTANT: Your previous output failed validation or citation checks:
 ${validationError}
 
-Previous output was:
-${rawOutput}
-
-Please correct the issues and output valid JSON conforming strictly to the schema.
-Every evidenceRefs entry MUST strictly match one of the actual Step IDs or Photo IDs provided.
-Adhere strictly to the honesty rules (separate observed vs inferred vs uncertain, and acknowledge missing evidence).`;
+CORRECTION REQUIREMENTS:
+1. Output ONLY one valid JSON object. Do not include markdown formatting, code fences (\`\`\`json or \`\`\`), or commentary.
+2. Every evidence reference in "evidenceRefs" MUST EXACTLY match one of the supplied canonical IDs: [${allowedCitations}].
+3. Do NOT cite IDs that do not exist (such as non-existent step or photo IDs).
+4. Do NOT invent observations, temperatures, decibels, counts, or measurements that were not recorded.
+5. Adhere strictly to the honesty rules (separate observed vs inferred vs uncertain, and state missing evidence in uncertain).`;
 }
 
 /**

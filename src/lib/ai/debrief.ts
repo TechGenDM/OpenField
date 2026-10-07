@@ -13,6 +13,8 @@ import {
   buildDebriefRetryPrompt,
 } from "./prompts";
 
+import { extractJsonObject } from "./json";
+
 export interface DebriefPhotoInput {
   id: string;
   dataUrl: string;
@@ -90,6 +92,7 @@ export function validateReportQuality(
 
 /**
  * Parses and validates raw model debrief output against schema and citation rules.
+ * Uses extractJsonObject to handle markdown code fences without corrupting braces in strings.
  */
 export function validateRawReport(
   rawText: string,
@@ -97,7 +100,8 @@ export function validateRawReport(
   validPhotoIds: string[]
 ): { success: true; data: FieldReport } | { success: false; error: string } {
   try {
-    const parsed = JSON.parse(rawText);
+    const cleanJson = extractJsonObject(rawText);
+    const parsed = JSON.parse(cleanJson);
 
     // 1. Zod schema validation
     const schemaStart = performance.now();
@@ -133,7 +137,7 @@ export function validateRawReport(
 
 /**
  * Generates an honest Field Report using local Gemma (and vision if photos are provided).
- * Enforces Zod validation, deterministic citation checking, and 1 retry.
+ * Enforces canonical step IDs, Zod validation, deterministic citation checking, and 1 retry.
  */
 export async function createReport(
   params: CreateReportParams
@@ -141,12 +145,30 @@ export async function createReport(
   const { protocol, observations, photos = [] } = params;
   const model = getModelName();
 
-  const validStepIds = protocol.steps.map((s) => s.id);
+  // Enforce canonical step IDs (step-1 ... step-N) across protocol and observations
+  const canonicalSteps = protocol.steps.map((s, idx) => ({
+    ...s,
+    id: `step-${idx + 1}`,
+  }));
+  const canonicalProtocol: FieldProtocol = {
+    ...protocol,
+    steps: canonicalSteps,
+  };
+  const validStepIds = canonicalSteps.map((s) => s.id);
   const validPhotoIds = photos.map((p) => p.id);
 
+  const canonicalObservations: Observation[] = observations.map((obs, idx) => {
+    const matchedIdx = protocol.steps.findIndex((s) => s.id === obs.stepId);
+    const targetStepId = matchedIdx !== -1 ? `step-${matchedIdx + 1}` : (canonicalSteps[idx]?.id || obs.stepId);
+    return {
+      ...obs,
+      stepId: targetStepId,
+    };
+  });
+
   const userPrompt = buildDebriefUserPrompt({
-    protocol,
-    observations,
+    protocol: canonicalProtocol,
+    observations: canonicalObservations,
     photos,
   });
 
@@ -205,8 +227,9 @@ export async function createReport(
 
     const retryPrompt = buildDebriefRetryPrompt(
       userPrompt,
-      firstRaw,
-      firstCheck.error
+      firstCheck.error,
+      validStepIds,
+      validPhotoIds
     );
 
     const retryUserMessage: { role: string; content: string; images?: string[] } = {

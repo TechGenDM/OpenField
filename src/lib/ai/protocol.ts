@@ -14,6 +14,8 @@ import {
 } from "./prompts";
 import { validateProtocolQuality } from "./quality";
 
+import { extractJsonObject } from "./json";
+
 export type CreateProtocolResult =
   | { success: true; protocol: FieldProtocol }
   | { success: false; error: AppError };
@@ -28,7 +30,8 @@ export function validateRawProtocol(
   input: StudyInput
 ): { success: true; data: FieldProtocol } | { success: false; error: string } {
   try {
-    const parsed = JSON.parse(rawText);
+    const cleanJson = extractJsonObject(rawText);
+    const parsed = JSON.parse(cleanJson);
 
     // Merge user-provided fixed parameters with model-generated steps
     const candidate = {
@@ -39,10 +42,8 @@ export function validateRawProtocol(
       type: input.type,
       steps: Array.isArray(parsed.steps)
         ? parsed.steps.map((step: Record<string, unknown>, idx: number) => ({
-            id:
-              typeof step.id === "string" && /^[a-zA-Z0-9_-]+$/.test(step.id.trim())
-                ? step.id.trim()
-                : `step-${idx + 1}`,
+            // Canonical step IDs (step-1, step-2, ... step-N) derived deterministically from position
+            id: `step-${idx + 1}`,
             instruction: String(step.instruction || ""),
             evidence: step.evidence,
             required: Boolean(step.required ?? true),

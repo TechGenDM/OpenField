@@ -57,6 +57,16 @@ describe("FieldProtocolSchema step count constraints", () => {
     expect(result.success).toBe(true);
   });
 
+  it("accepts a protocol with exactly 5 steps", () => {
+    const valid = {
+      ...baseValidProtocol,
+      steps: createSteps(5),
+    };
+
+    const result = FieldProtocolSchema.safeParse(valid);
+    expect(result.success).toBe(true);
+  });
+
   it("accepts a protocol with exactly 6 steps", () => {
     const valid = {
       ...baseValidProtocol,
@@ -65,5 +75,39 @@ describe("FieldProtocolSchema step count constraints", () => {
 
     const result = FieldProtocolSchema.safeParse(valid);
     expect(result.success).toBe(true);
+  });
+
+  it("normalizes inconsistent raw step IDs ['step-1', '2', '3', '4'] to canonical IDs", async () => {
+    const { validateRawProtocol } = await import("../src/lib/ai/protocol");
+    const rawModelOutput = JSON.stringify({
+      title: "Test Protocol",
+      researchQuestion: "What leaves are here?",
+      steps: [
+        { id: "step-1", instruction: "Look at canopy", evidence: "note", required: true },
+        { id: "2", instruction: "Photograph leaf", evidence: "photo", required: true },
+        { id: "3", instruction: "Look at ground litter", evidence: "note", required: true },
+        { id: "4", instruction: "Count fallen seeds", evidence: "count", required: true },
+      ],
+      evidenceNeeded: ["1 photo", "2 notes", "1 count"],
+      safetyNote: "Stay safe on the sidewalk.",
+      audioScript: "Briefing text.",
+    });
+
+    const res = validateRawProtocol(rawModelOutput, {
+      question: "What leaves are here?",
+      place: "Local Park",
+      minutes: 15,
+      type: "nature",
+    });
+
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.data.steps.map((s) => s.id)).toEqual([
+        "step-1",
+        "step-2",
+        "step-3",
+        "step-4",
+      ]);
+    }
   });
 });
