@@ -147,7 +147,7 @@ npm run build
 ## ⚠️ Current MVP Limitations
 
 - **Local Storage Quota**: Photos and studies are stored in browser `localStorage`. To prevent quota overflows, attached photos are downscaled to 1024px, and storage quota exceptions are caught gracefully.
-- **Inference Latency**: Generation time depends on your computer's hardware. On Apple Silicon or dedicated GPUs, protocol generation typically takes 10–25s and debrief 45–90s. On CPU-only machines, use `gemma4:e2b`.
+- **Inference Latency**: Generation latency depends heavily on hardware, model size, and workload. Lower-resource machines can use `gemma4:e2b`.
 - **Single Active Session**: The MVP stores studies locally per browser profile; there is no cloud synchronization across disparate devices.
 
 ---
