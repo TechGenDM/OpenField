@@ -1,28 +1,81 @@
 @import "tailwindcss";
 
+@theme {
+  --color-paper: var(--paper);
+  --color-sheet: var(--sheet);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-rule: var(--rule);
+  --color-signal: var(--signal);
+  --color-on-signal: var(--on-signal);
+
+  --color-field-bg: var(--field-bg);
+  --color-field-text: var(--field-text);
+  --color-field-dim: var(--field-dim);
+  --color-field-signal: var(--field-signal);
+  --color-field-rule: var(--field-rule);
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+}
+
+:root {
+  --paper: #F2F4F1;
+  --sheet: #FAFBF9;
+  --ink: #101613;
+  --ink-2: #44504A;
+  --rule: #D3D9D3;
+  --signal: #B8461A;
+  --on-signal: #FAFBF9;
+
+  --field-bg: #0B0F0D;
+  --field-text: #F2F4F1;
+  --field-dim: #98A39C;
+  --field-signal: #F0804A;
+  --field-rule: #232B26;
+}
+
 @layer base {
-  :root {
-    --background: #fbfbf9;
-    --foreground: #141413;
-    --muted: #64645e;
-    --border: #e3e3de;
-    --card: #ffffff;
-    --accent: #234e34;
+  * {
+    border-color: var(--rule);
   }
 
   body {
-    background-color: var(--background);
-    color: var(--foreground);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background-color: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--signal);
+    outline-offset: 2px;
   }
 }
 
-/* Print styles specifically designed for the printable Field Card */
+/* Faint diagonal hatch pattern for Uncertain report block */
+.bg-hatch {
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 6px,
+    rgba(16, 22, 19, 0.04) 6px,
+    rgba(16, 22, 19, 0.04) 10px
+  );
+}
+
+/* Print styles specifically designed for Field Card (Screen 2) & Field Report (Screen 5) */
 @media print {
+  @page {
+    margin: 1.5cm;
+    size: auto;
+  }
+
   body {
     background: #ffffff !important;
     color: #000000 !important;
+    font-size: 11pt !important;
   }
 
   .no-print {
@@ -33,10 +86,20 @@
     display: block !important;
   }
 
-  .field-card {
-    border: 2px solid #000000 !important;
+  .field-card,
+  .report-sheet {
+    background: #ffffff !important;
+    color: #000000 !important;
+    border: 1px solid #000000 !important;
     box-shadow: none !important;
     padding: 1.5rem !important;
     page-break-inside: avoid;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .field-card *,
+  .report-sheet * {
+    color: #000000 !important;
   }
 }
