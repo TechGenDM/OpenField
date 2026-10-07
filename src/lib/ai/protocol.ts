@@ -12,16 +12,18 @@ import {
   buildProtocolUserPrompt,
   buildProtocolRetryPrompt,
 } from "./prompts";
+import { validateProtocolQuality } from "./quality";
 
 export type CreateProtocolResult =
   | { success: true; protocol: FieldProtocol }
   | { success: false; error: AppError };
 
 /**
- * Attempts to parse and validate raw model text output against the FieldProtocol schema.
+ * Attempts to parse and validate raw model text output against the FieldProtocol schema
+ * AND deterministic quality rules (time budget and SPEC Section 6 safety).
  * Enriches the object with server-generated metadata (id, minutes, type).
  */
-function validateRawProtocol(
+export function validateRawProtocol(
   rawText: string,
   input: StudyInput
 ): { success: true; data: FieldProtocol } | { success: false; error: string } {
@@ -51,12 +53,21 @@ function validateRawProtocol(
       audioScript: String(parsed.audioScript || ""),
     };
 
+    // 1. Zod schema structural validation (e.g. 4-6 steps, valid enums)
     const result = FieldProtocolSchema.safeParse(candidate);
     if (!result.success) {
       const issueDetails = result.error.issues
         .map((iss) => `${iss.path.join(".")}: ${iss.message}`)
         .join("; ");
       return { success: false, error: issueDetails };
+    }
+
+    // 2. Deterministic Quality checks: Time budget & SPEC Section 6 safety rules
+    // Why: LLMs can sometimes hallucinate lengthy instructions or overlook outdoor hazards;
+    // this lightweight check catches violations deterministically and prompts a single retry.
+    const qualityCheck = validateProtocolQuality(result.data, input.minutes);
+    if (!qualityCheck.ok) {
+      return { success: false, error: qualityCheck.reason };
     }
 
     return { success: true, data: result.data };
@@ -70,7 +81,8 @@ function validateRawProtocol(
 
 /**
  * Generates a structured Field Protocol using the local Gemma model via Ollama.
- * Enforces Zod validation and executes exactly one retry if the first output is invalid.
+ * Enforces Zod validation, time budget checks, and safety rules,
+ * executing exactly one retry if the first output is invalid.
  */
 export async function createProtocol(
   input: StudyInput
@@ -105,7 +117,7 @@ export async function createProtocol(
       return { success: true, protocol: firstCheck.data };
     }
 
-    // Attempt 2 (Retry once): Feed the validation error back to the model
+    // Attempt 2 (Retry once): Feed the validation / quality error back to the model
     // Hard rule: "On failure: retry once with the validation error in the prompt, then return a typed error."
     const retryPrompt = buildProtocolRetryPrompt(
       userPrompt,
@@ -130,12 +142,12 @@ export async function createProtocol(
       return { success: true, protocol: retryCheck.data };
     }
 
-    // Both attempts failed Zod validation
+    // Both attempts failed validation
     return {
       success: false,
       error: {
         code: "INVALID_MODEL_OUTPUT",
-        message: "The model generated a response that failed schema validation.",
+        message: "The model generated a response that failed validation or quality checks.",
         details: `First error: ${firstCheck.error} | Retry error: ${retryCheck.error}`,
       },
     };
