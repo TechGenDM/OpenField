@@ -1,101 +1,167 @@
-# ARCHITECTURE.md
+# ARCHITECTURE.md — OpenField Architecture
 
-## Flow
-```
-Browser (Next.js UI)
-   |  POST /api/study            (question, place, minutes, type)
-   v
-Server route -> src/lib/ai/protocol.ts -> Ollama (Gemma) -> Zod validate -> FieldProtocol
-   |
-   |  (optional) POST /api/speak -> ElevenLabs -> mp3 saved in browser storage
-   v
-User goes outside (Field Mode + audio + printed Field Card)
-   |
-   |  POST /api/debrief          (protocol, notes, resized photos)
-   v
-Server route -> src/lib/ai/debrief.ts -> Ollama (Gemma vision) -> Zod validate -> FieldReport
-```
+## 1. System Flow
 
-## Reality check: where does the phone fit?
-Ollama runs on the laptop. The phone can open the app only on the same Wi-Fi
-(run `next dev -H 0.0.0.0`, open the laptop's LAN address on the phone). So:
-1. At home: create the study, download the audio and the Field Card.
-2. Outside: audio + card only. No internet needed.
-3. Back home: upload photos and notes, get the report.
-Do not build offline/PWA features. This flow is the product.
-
-## Folder structure
 ```
-openfield/
-  AGENTS.md SPEC.md ARCHITECTURE.md DECISIONS.md TASKS.md README.md .env.example
-  src/
-    app/
-      page.tsx                      # Screen 1 Create Study
-      study/[id]/page.tsx           # Screen 2 Protocol
-      study/[id]/field/page.tsx     # Screen 3 Field Mode
-      study/[id]/return/page.tsx    # Screen 4 Return
-      study/[id]/report/page.tsx    # Screen 5 Report
-      api/study/route.ts
-      api/debrief/route.ts
-      api/speak/route.ts            # P1 only
-    lib/
-      schemas.ts                    # all Zod schemas + inferred types
-      storage.ts                    # browser storage for studies (no DB)
-      image.ts                      # resize to ~1024px + strip EXIF
-      telemetry.ts                  # Sentry spans (P2)
-      ai/
-        ollama.ts                   # one configured client
-        prompts.ts                  # all prompt text lives here
-        protocol.ts                 # createProtocol()
-        debrief.ts                  # createReport()
-  tests/
+Browser (Next.js Client)
+   │
+   ├─► POST /api/study (question, place, minutes, type)
+   │     │
+   │     ▼
+   │   Server Route ──► src/lib/ai/protocol.ts ──► Ollama (Gemma) ──► Zod Validate ──► FieldProtocol
+   │
+   ├─► Field Mode (screen-minimizing timer + step navigation in browser; zero Ollama calls during observation)
+   │   (or physical offline Field Card printout)
+   │
+   ├─► Evidence Capture (client-side 1024px downscaling + canvas EXIF/GPS stripping)
+   │
+   └─► POST /api/debrief (protocol, observations, base64 photos)
+         │
+         ▼
+       Server Route ──► src/lib/ai/debrief.ts ──► Ollama (Gemma Vision) ──► Zod Validate ──► FieldReport
 ```
 
-## Data shapes (Zod, in src/lib/schemas.ts)
+---
+
+## 2. Where Does the Phone Fit?
+
+- **Ollama runs exclusively on your computer/laptop.** The phone does not run Ollama.
+- OpenField requires no cloud AI/API. Ollama runs locally on the user's computer.
+- The field phase can be conducted in two ways:
+  1. **Offline Field Card**: Click *Print / Save Field Card* on the protocol screen and take paper or an offline PDF into the field.
+  2. **Local LAN Access**: Run `npm run dev -- -H 0.0.0.0` and open your laptop's local network IP on your phone while on home Wi-Fi before heading out.
+- **Client-Side Field Mode**: Once loaded, Field Mode timer and step navigation execute client-side in the browser. No active connection to Ollama is required during field observation. The user returns to the laptop to upload evidence and trigger the debrief.
+
+---
+
+## 3. Repository Structure
+
+```
+OpenField/
+├── AGENTS.md                  # Rules for AI pair programmers
+├── ARCHITECTURE.md            # Architectural design & data contracts (this file)
+├── CONTRIBUTING.md            # Hacktoberfest & open-source contributor guide
+├── DECISIONS.md               # Architectural decision record (ADR)
+├── LICENSE                    # MIT License
+├── README.md                  # Primary public documentation
+├── SPEC.md                    # Product specification & anti-scope
+├── TASKS.md                   # Task roadmap & verification status
+├── .env.example               # Environment variables template
+├── package.json               # Dependencies & scripts
+│
+├── src/
+│   ├── app/
+│   │   ├── page.tsx                      # Screen 1: Create Study
+│   │   ├── layout.tsx                    # Root layout with font & metadata
+│   │   ├── globals.css                   # Tailwind styles
+│   │   ├── study/[id]/page.tsx           # Screen 2: Field Protocol & Field Card
+│   │   ├── study/[id]/field/page.tsx     # Screen 3: Screen-Minimizing Field Mode
+│   │   ├── study/[id]/return/page.tsx    # Screen 4: Return & Evidence Collection
+│   │   ├── study/[id]/report/page.tsx    # Screen 5: Honest Field Report
+│   │   └── api/
+│   │       ├── study/route.ts            # Server route for protocol generation
+│   │       └── debrief/route.ts          # Server route for multimodal debrief
+│   │       └── (future: speak/route.ts)  # Planned P1 extension: ElevenLabs audio
+│   │
+│   ├── components/
+│   │   └── AppShell.tsx                  # Consistent header/footer wrapper
+│   │
+│   └── lib/
+│       ├── schemas.ts                    # Zod schemas for all data entities
+│       ├── storage.ts                    # LocalStorage abstraction with quota handling
+│       ├── image.ts                      # Off-screen canvas resizing (1024px) & EXIF stripping
+│       ├── timer.ts                      # Drift-free timestamp timer calculations
+│       │
+│       └── ai/
+│           ├── ollama.ts                 # Configured Ollama client singleton
+│           ├── prompts.ts                # System/user prompts & Ollama JSON schemas
+│           ├── protocol.ts               # Protocol generation orchestrator with retry
+│           ├── debrief.ts                # Multimodal report generator with citation checks
+│           ├── quality.ts                # Deterministic time budget & safety validator
+│           └── json.ts                   # Robust balanced-brace JSON extractor
+│
+└── tests/
+    ├── debrief.test.ts                   # Debrief generation & citation validation tests
+    ├── field-mode.test.ts                # Timer, step clamping & layout isolation tests
+    ├── image.test.ts                     # Canvas resizing & metadata stripping unit tests
+    ├── protocol-error.test.ts            # Error typing & network failure tests
+    ├── protocol-quality.test.ts          # Protocol time budget & safety constraint tests
+    └── protocol-schema.test.ts           # Protocol schema parsing & step range tests
+```
+
+---
+
+## 4. Data Shapes (Zod Schemas in `src/lib/schemas.ts`)
+
 ```ts
-StudyInput    = { question: string, place: string, minutes: 15|30|45|60,
-                  type: 'nature'|'environment'|'sound'|'neighborhood'|'photography' }
+// Study Creation Input
+StudyInput = {
+  question: string;
+  place: string;
+  minutes: 15 | 30 | 45 | 60;
+  type: "nature" | "environment" | "sound" | "neighborhood" | "photography";
+}
 
-FieldProtocol = { id, title, researchQuestion, minutes, type,
-                  steps: { id: string, instruction: string,
-                           evidence: 'photo'|'note'|'count'|'measurement',
-                           required: boolean }[],            // 4-6 steps
-                  evidenceNeeded: string[],
-                  safetyNote: string,
-                  audioScript: string }                      // for ElevenLabs
+// Generated Field Protocol
+FieldProtocol = {
+  id: string;
+  title: string;
+  researchQuestion: string;
+  minutes: StudyMinutes;
+  type: StudyType;
+  steps: {
+    id: string;               // Canonical IDs: step-1, step-2, ...
+    instruction: string;
+    evidence: "photo" | "note" | "count" | "measurement";
+    required: boolean;
+  }[];                        // Strictly 4–6 steps
+  evidenceNeeded: string[];
+  safetyNote: string;
+  audioScript: string;
+}
 
-Observation   = { stepId: string, note?: string, photoIds?: string[], measured?: boolean }
+// User Observation Recorded on Return
+Observation = {
+  stepId: string;
+  note?: string;
+  photoIds?: string[];
+  measured?: boolean;
+}
 
-FieldReport   = { findings: { claim: string, evidenceRefs: string[],
-                              confidence: 'low'|'medium'|'high' }[],
-                  observed: string[],      // things the user recorded
-                  inferred: string[],      // AI reasoning, labelled as such
-                  uncertain: string[],     // gaps, missing measurements
-                  evidenceSummary: { photos: number, notes: number, measurements: number },
-                  nextQuestion: string }
+// Final Honest Field Report
+FieldReport = {
+  findings: {
+    claim: string;
+    evidenceRefs: string[];   // Strictly minItems: 1; must match valid step/photo IDs
+    confidence: "low" | "medium" | "high";
+  }[];
+  observed: string[];         // Direct facts recorded by user
+  inferred: string[];         // AI deductions
+  uncertain: string[];        // Evidence gaps, uncompleted steps, missing data
+  evidenceSummary: {
+    photos: number;
+    notes: number;
+    measurements: number;
+  };
+  nextQuestion: string;
+}
 ```
-Rule: every `evidenceRefs` entry must match a real step id or photo id. Validate this in code, not in the prompt.
 
-## Gemma / Ollama settings (verified on the Ollama gemma4 page)
-- Default model: `gemma4:e4b`. If too slow, `gemma4:e2b`. If hardware allows, `gemma4:12b`.
-- **Never use `:cloud` tags.** They are not local and break the privacy story.
-- Recommended sampling: temperature 1.0, top_p 0.95, top_k 64.
-- Thinking mode is switched on by `<|think|>` at the start of the system prompt. Protocol generation: thinking off (speed). Debrief: try thinking on, keep it off if too slow.
-- In multi-turn calls, never put earlier thinking text back into history.
-- For image input, put the images BEFORE the text in the message.
-- Use Ollama's structured output (JSON schema in the `format` option) and still validate with Zod. Check the current `ollama` JS docs for exact options before coding.
-- Resize photos (about 1024px longest side) before sending, for speed.
+---
 
-## AI behavior contracts (put in prompts.ts)
-Protocol prompt must: stay inside the time budget, give 4-6 concrete steps a person can do by looking
-and counting (no special equipment), follow SPEC section 6 safety rules, and write a short spoken `audioScript`.
-Debrief prompt must: use only the given notes/photos, label observed vs inferred vs uncertain,
-refuse to invent numbers, and say "not enough evidence" when true.
+## 5. Local AI & Robustness Patterns
 
-## Errors
-Typed errors: `OLLAMA_UNREACHABLE`, `MODEL_NOT_FOUND`, `INVALID_MODEL_OUTPUT`, `TIMEOUT`.
-UI shows a plain message and a retry button. No raw stack traces to users.
+### A. Strict Evidence Validation (`evidenceRefs`)
+Every claim inside `findings` must reference at least one valid canonical step ID (`step-1`, `step-2`) or photo ID (`photo-1`). In `src/lib/ai/debrief.ts`, `validateReportQuality` verifies that citations exist and reject uncited statements. Uncompleted steps or missing measurements are guided into `uncertain`.
 
-## Observability (P2)
-One Sentry span per Gemma call with: model name, step (protocol|debrief), latency, retry count, success/fail.
-Do not send photos, notes, or locations to Sentry.
+### B. Structured Grammar Schema Masking (`minItems: 1`)
+Ollama's structured JSON output uses grammar sampling. By setting `minItems: 1` on `evidenceRefs` in `REPORT_JSON_SCHEMA`, the sampler is prevented from emitting empty citation arrays (`[]`), ensuring the model either cites evidence or shifts unverified claims to `uncertain`.
+
+### C. Balanced-Brace JSON Recovery (`src/lib/ai/json.ts`)
+Local models occasionally preface or append conversational text around JSON objects. Rather than naive string slicing that risks breaking on braces nested inside JSON string values, `extractJsonObject` tracks string escape states and balanced bracket depth to reliably extract valid JSON payloads.
+
+### D. Single-Retry Error Feedback Loop
+If raw output fails Zod parsing or deterministic quality checks, OpenField retries exactly once with a targeted prompt containing the specific error message and allowed canonical IDs, without dumping previous raw text. If the retry fails, a typed error is returned (`INVALID_MODEL_OUTPUT`, `OLLAMA_UNREACHABLE`, or `MODEL_NOT_FOUND`).
+
+### E. Client-Side Image Privacy
+Photos never enter the backend in raw format. Before any photo is sent to `/api/debrief`, `src/lib/image.ts` draws it to an off-screen HTML5 canvas, downscales it to a max bounding box of 1024px, and exports it as clean JPEG base64. All EXIF metadata and GPS coordinates are discarded in the browser.

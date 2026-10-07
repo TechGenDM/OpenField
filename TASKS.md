@@ -1,31 +1,74 @@
-# TASKS.md
+# TASKS.md — OpenField Development Roadmap
 
-## CURRENT TASK: #1 Create Study -> local Gemma -> structured Field Protocol
+## CURRENT TASK: #6 Open-Source / Hacktoberfest Polish
 
-**Goal:** On screen 1, the user fills the form, clicks Create Field Study, and sees a validated
-FieldProtocol rendered on screen 2.
+**Goal:** Complete documentation polish, create open-source contributor onboarding guides, align project specifications with the completed MVP, and prepare OpenField for Hacktoberfest 2026.
 
-**Do:**
-1. Create the Next.js app (App Router, TypeScript strict, Tailwind). Add `zod` and `ollama`.
-2. `src/lib/schemas.ts`: `StudyInput` and `FieldProtocol` exactly as in ARCHITECTURE.md.
-3. `src/lib/ai/ollama.ts`: one client using `OLLAMA_HOST` and `OPENFIELD_MODEL`.
-4. `src/lib/ai/prompts.ts` + `protocol.ts`: `createProtocol(input)` using structured output, Zod validation, one retry.
-5. `POST /api/study`: validate input, call `createProtocol`, return protocol or typed error.
-6. Screen 1 form + screen 2 display. Save protocol in browser storage.
-7. One test: schema rejects a protocol with 2 steps or 9 steps.
+**Status:** IN PROGRESS
+- [x] Complete documentation/repository audit.
+- [x] Add standard MIT `LICENSE` (Copyright 2026 OpenField Contributors).
+- [x] Create `CONTRIBUTING.md` with development setup, PR expectations, and strict anti-scope guardrails.
+- [x] Update `.env.example` with detailed model selection documentation (`gemma4:e4b`, `gemma4:e2b`, `gemma4:12b`).
+- [x] Rewrite `README.md` as primary public-facing guide covering philosophy, 5-step loop, local AI architecture, honest reports, and quickstart.
+- [x] Synchronize `SPEC.md`, `ARCHITECTURE.md`, `DECISIONS.md`, and `package.json`.
+- [x] Verify all automated checks pass (`npm test`, `npm run lint`, `npm run typecheck`, `npm run build`).
 
-**Acceptance:** works end to end with `ollama` running; clear error if Ollama is off; no AI call from components; lint + typecheck + test pass.
-**Do NOT** build Field Mode, audio, photos, Mastra or Sentry yet.
+---
 
-### Paste this into Antigravity to start
-> Read AGENTS.md, SPEC.md, ARCHITECTURE.md, DECISIONS.md and TASKS.md. Do only CURRENT TASK #1. Before writing code, show me a short plan (files you will create, packages you will install and their current versions). Wait for my "go". Then build it and finish with the summary format from AGENTS.md.
+## Completed Tasks
 
-## Plan (today is Oct 7; keep one buffer day)
-- [ ] **Oct 7** Task 1 above. Then Task 2: protocol quality (time budget check, safety rules, 5 test questions)
-- [ ] **Oct 8** Field Mode + Field Card + ElevenLabs mp3. **Do a real outdoor test.**
-- [ ] **Oct 9** Return screen, photo resize + EXIF strip, Gemma vision debrief, Report screen. Second real test
-- [ ] **Oct 10** Sentry spans, Mastra wrapper, README, demo video draft, article draft with REAL results
-- [ ] **Oct 11** Fix only real bugs, final video, publish article, submit early (check official cutoff)
+### [x] Task #1: Create Study → Local Gemma → Structured Field Protocol
+- Next.js App Router, strict TypeScript, Tailwind CSS, Zod, and official `ollama` client.
+- Implemented `/api/study` server route calling local Gemma with schema-constrained JSON output.
+- Screen 1 (Create Study) and Screen 2 (Field Protocol display with printable Field Card).
+- Protocol validation with single automatic retry on malformed outputs.
 
-## Backlog (only if everything above is done)
-SerpApi pre-study context, Render deploy.
+### [x] Task #2: Protocol Quality & Safety Enforcement
+- Deterministic quality validation rules in `src/lib/ai/quality.ts`: time budget validation, 4–6 steps constraint, public accessibility checks, and mandatory safety note.
+- Added comprehensive unit tests in `tests/protocol-quality.test.ts`.
+
+### [x] Task #3: Field Mode Experience
+- Screen 3 (`/study/[id]/field`): High-contrast, near-black, screen-minimizing UI.
+- Large countdown timer without interval drift (`src/lib/timer.ts`).
+- Step navigation controls and Web Speech API audio briefing fallback.
+
+### [x] Task #3.1: Polish Field Mode & Layout Isolation
+- Fixed layout isolation so Field Mode stays immersive and distinct from standard app navigation.
+- Accessible SVG iconography and responsive timer controls.
+
+### [x] Task #4: Return Screen → Evidence Processing → Multimodal Vision Debrief → Field Report
+- Screen 4 (`/study/[id]/return`): Observation recording per step and multi-photo upload.
+- Client-side image canvas processing in `src/lib/image.ts`: resizing to 1024px and stripping EXIF/GPS metadata before saving to localStorage or sending to server.
+- Server route `/api/debrief`: Multi-photo local multimodal inference with Gemma.
+- Screen 5 (`/study/[id]/report`): Honest Field Report rendering the 5 distinct sections:
+  1. Key Findings with mandatory evidence citations (`evidenceRefs`)
+  2. Observed (facts recorded directly by user)
+  3. Inferred (AI reasoning)
+  4. Uncertain (missing evidence, incomplete steps, unverified assertions)
+  5. Next Investigation (suggested follow-up question)
+
+### [x] Task #4.1: Fix Real E2E Debrief Failures & Protocol Step IDs
+- Harmonized step IDs across protocol generator and prompt templates (`step-1`, `step-2`, ...).
+- Implemented robust balanced-brace JSON extraction (`src/lib/ai/json.ts`) to avoid parsing errors on model conversational wrappers.
+
+### [x] Task #4.2: Debrief Reliability & Latency Optimization
+- Added `minItems: 1` constraint on `evidenceRefs` in Ollama structured output schema to prevent empty citation arrays.
+- Reinforced system prompt to route incomplete steps to `uncertain` rather than generating uncited findings.
+- Enforced concise report generation (2–4 findings, 1–3 bullets per section) to eliminate latency inflation on local hardware.
+
+---
+
+## Current Verification Status
+- **Unit & Quality Tests (`npm test`)**: 72/72 tests passing across 6 test suites.
+- **Code Quality (`npm run lint`)**: ESLint clean, 0 errors.
+- **TypeScript (`npm run typecheck`)**: Strict mode passing, 0 errors.
+- **Production Build (`npm run build`)**: Compiled and optimized successfully.
+- **Manual Verification**: Full end-to-end loop tested and verified with local `gemma4:e4b`.
+- **MVP State**: Application code is FROZEN.
+
+---
+
+## Future Backlog (Post-Hacktoberfest / Optional Extensions)
+- Voice briefing generation using ElevenLabs (generate once before study, cache as mp3).
+- Telemetry tracing for local Ollama calls using Sentry spans (metadata only, no photos/notes).
+- Workflow orchestration wrapping via Mastra.

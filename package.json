@@ -1,6 +1,20 @@
 {
   "name": "openfield",
   "version": "0.1.0",
+  "description": "Local-AI field study engine powered by Gemma via Ollama",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/TechGenDM/OpenField.git"
+  },
+  "keywords": [
+    "gemma",
+    "ollama",
+    "local-ai",
+    "field-study",
+    "nextjs",
+    "hacktoberfest"
+  ],
   "private": true,
   "type": "module",
   "scripts": {
