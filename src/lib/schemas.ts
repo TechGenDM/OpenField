@@ -92,7 +92,9 @@ export type Observation = z.infer<typeof ObservationSchema>;
  */
 export const ReportFindingSchema = z.object({
   claim: z.string().min(1),
-  evidenceRefs: z.array(z.string().min(1)),
+  evidenceRefs: z
+    .array(z.string().min(1))
+    .min(1, "Every finding must cite at least one evidence reference"),
   confidence: z.enum(["low", "medium", "high"]),
 });
 

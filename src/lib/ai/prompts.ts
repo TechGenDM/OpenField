@@ -108,30 +108,35 @@ export const PROTOCOL_JSON_SCHEMA = {
  * Debrief System Prompt setting OpenField honesty, evidence analysis, and citation rules
  * based on SPEC.md Section 5 and ARCHITECTURE.md.
  */
+/**
+ * Debrief System Prompt setting OpenField honesty, evidence analysis, and citation rules
+ * based on SPEC.md Section 5, ARCHITECTURE.md, and TASK #4.2 latency/reliability requirements.
+ */
 export const DEBRIEF_SYSTEM_PROMPT = `You are OpenField Debrief, a local field-study research analyst powered by local Gemma.
-Your job is to analyze the user's completed outdoor field investigation based ONLY on the evidence they provided (notes, counts, measurements, and photos).
+Analyze the user's outdoor study based ONLY on the evidence provided (notes, counts, measurements, and photos).
 
-CRITICAL HONESTY RULES (SPEC SECTION 5 & AGENTS.md):
-1. SEPARATE THREE CATEGORIES STRICTLY:
-   - "observed": Things the user recorded, saw, heard, counted, or photographed directly in the field.
-   - "inferred": AI interpretations, logical deductions, or hypotheses derived from the observations. Clearly state this is inference.
-   - "uncertain": Gaps in the evidence, missing measurements, unconfirmed identifications, or unanswerable aspects of the research question.
-2. REFUSE TO INVENT EVIDENCE:
-   - Never invent measurements (temperatures, decibels, distances, weights), weather readings, counts, or exact species names that the user did not record.
-   - If no real measurements were taken, you MUST explicitly state so in the "uncertain" section (e.g., "No instrumented temperature, sound, or physical measurements recorded").
-   - It is correct, honest, and expected to state "Not enough evidence" whenever observations are insufficient.
-3. FINDINGS AND CITATIONS:
-   - For every finding in "findings", provide a concrete claim, a confidence level ("low", "medium", or "high"), and an "evidenceRefs" array.
-   - "evidenceRefs" MUST ONLY contain valid IDs from the investigation: either a step ID (e.g., "step-1") or a photo ID (e.g., "photo-1"). Do not invent non-existent IDs.
-4. EVIDENCE SUMMARY:
-   - Count the total photos, notes, and measurements provided by the user in "evidenceSummary".
-5. NEXT QUESTION:
-   - Suggest a single, compelling follow-up research question (nextQuestion) that builds directly upon what was learned and what remains uncertain.
-
-Output must strictly adhere to the requested JSON schema.`;
+CRITICAL RULES:
+1. FINDINGS vs UNCERTAIN:
+   - "findings" contains ONLY positive facts directly backed by user evidence. Every finding MUST contain at least one valid ID in "evidenceRefs".
+   - NEVER create a finding for uncompleted steps or missing observations. If evidence is lacking or a step was not performed, place that statement under "uncertain" ONLY.
+   - Every "evidenceRefs" entry MUST be an exact match to a provided Step ID (step-1 ... step-N) or Photo ID. Never cite an unlisted ID.
+2. HONESTY SECTIONS:
+   - "observed": Concise list of what the user recorded or photographed (no speculation).
+   - "inferred": Concise logical hypotheses derived from observations (labelled as inference).
+   - "uncertain": Gaps, uncompleted steps, missing measurements, and unverified aspects.
+   - Refuse to invent measurements (temperatures, decibels, counts), exact species, or locations.
+3. CONCISENESS & FORMAT:
+   - Output ONLY one valid JSON object. No markdown fences, no text commentary.
+   - "findings": 2-4 short claims (1 sentence each).
+   - "observed": 1-4 concise bullet points.
+   - "inferred": 1-3 concise hypotheses.
+   - "uncertain": 1-3 concise limitation statements.
+   - "nextQuestion": 1 concise follow-up research question.
+   - Do NOT write long essays. Keep each statement concise.`;
 
 /**
- * Builds the user prompt for debrief analysis with clear steps, observations, and attached photo IDs.
+ * Builds the user prompt for debrief analysis with explicit citation mapping,
+ * clear distinction between findings and uncertain, and strict conciseness constraints.
  */
 export function buildDebriefUserPrompt({
   protocol,
@@ -142,19 +147,20 @@ export function buildDebriefUserPrompt({
   observations: Observation[];
   photos?: { id: string }[];
 }): string {
+  const allowedStepIds = protocol.steps.map((s) => s.id);
+  const allowedPhotoIds = photos.map((p) => p.id);
+  const allowedIdsText = [...allowedStepIds, ...allowedPhotoIds].join(", ");
+
   const stepsText = protocol.steps
-    .map(
-      (s) =>
-        `- Step ID: ${s.id} | Instruction: "${s.instruction}" | Expected Evidence: ${s.evidence}`
-    )
+    .map((s) => `- ${s.id}: "${s.instruction}" (evidence: ${s.evidence})`)
     .join("\n");
 
   const observationsText = observations
     .map((obs) => {
-      const parts = [`- Step ID: ${obs.stepId}`];
+      const parts = [`- ${obs.stepId}`];
       if (obs.note && obs.note.trim()) parts.push(`Note: "${obs.note.trim()}"`);
       if (obs.photoIds && obs.photoIds.length > 0)
-        parts.push(`Attached Photos: ${obs.photoIds.join(", ")}`);
+        parts.push(`Photos: [${obs.photoIds.join(", ")}]`);
       if (obs.measured !== undefined)
         parts.push(`Measured/Counted: ${obs.measured ? "Yes" : "No"}`);
       return parts.join(" | ");
@@ -163,34 +169,37 @@ export function buildDebriefUserPrompt({
 
   const photosListText =
     photos.length > 0
-      ? photos.map((p, i) => `- Photo ${i + 1} ID: "${p.id}"`).join("\n")
-      : "No photos provided.";
+      ? photos.map((p) => `- Photo ID: "${p.id}"`).join("\n")
+      : "None";
 
-  return `Please evaluate the following completed outdoor field study:
-Research Question: "${protocol.researchQuestion}"
-Location / Setting: "${protocol.title}"
-Duration: ${protocol.minutes} minutes
-Study Type: ${protocol.type}
+  return `STUDY DETAILS:
+- Question: "${protocol.researchQuestion}"
+- Location: "${protocol.title}"
+- Duration: ${protocol.minutes} min | Type: ${protocol.type}
 
-INVESTIGATION PROTOCOL STEPS:
+PROTOCOL STEPS:
 ${stepsText}
 
-USER FIELD OBSERVATIONS & EVIDENCE:
+USER EVIDENCE COLLECTED:
 ${observationsText || "No user notes recorded."}
 
-ATTACHED PHOTOS (${photos.length} total):
+ATTACHED PHOTOS:
 ${photosListText}
 
-Please write an honest Field Report adhering to all rules:
-- Only cite valid step IDs (${protocol.steps.map((s) => s.id).join(", ")}) or photo IDs (${photos.map((p) => p.id).join(", ") || "none"}) in evidenceRefs.
-- Separate observed facts from AI inferences from uncertainties.
-- If measurements were missing, state this clearly in "uncertain".`;
+ALLOWED EVIDENCE CITATION IDS (evidenceRefs):
+[${allowedIdsText}]
+
+TASK:
+Generate a concise Field Report JSON adhering strictly to the schema:
+1. Every claim in "findings" MUST have evidenceRefs citing one or more allowed IDs from [${allowedIdsText}].
+2. If any step was not completed or evidence is missing, do NOT create a finding; record it under "uncertain" instead.
+3. Keep findings to 2-4 short 1-sentence claims. Keep observed, inferred, and uncertain to 1-3 concise statements each.`;
 }
 
 /**
  * Builds the retry prompt if the model's debrief output failed validation or citation checks.
- * Enforces Requirement D: output only one JSON object, no markdown/fences, exact canonical IDs,
- * no hallucinated citations or measurements, and includes the exact validation error.
+ * Enforces Requirement D & TASK #4.2: explicit allowed IDs, no raw text dump,
+ * directing uncompleted steps to uncertain instead of empty findings.
  */
 export function buildDebriefRetryPrompt(
   originalUserPrompt: string,
@@ -205,19 +214,21 @@ export function buildDebriefRetryPrompt(
 
   return `${originalUserPrompt}
 
-IMPORTANT: Your previous output failed validation or citation checks:
+IMPORTANT: Your previous output failed validation:
 ${validationError}
 
 CORRECTION REQUIREMENTS:
 1. Output ONLY one valid JSON object. Do not include markdown formatting, code fences (\`\`\`json or \`\`\`), or commentary.
-2. Every evidence reference in "evidenceRefs" MUST EXACTLY match one of the supplied canonical IDs: [${allowedCitations}].
-3. Do NOT cite IDs that do not exist (such as non-existent step or photo IDs).
-4. Do NOT invent observations, temperatures, decibels, counts, or measurements that were not recorded.
-5. Adhere strictly to the honesty rules (separate observed vs inferred vs uncertain, and state missing evidence in uncertain).`;
+2. Every finding in "findings" MUST contain at least one valid evidence reference from: [${allowedCitations}].
+3. NEVER create a finding with empty evidenceRefs. If a step was not performed or evidence is lacking, place that statement in "uncertain" ONLY.
+4. Do NOT cite IDs that do not exist (such as non-existent step or photo IDs).
+5. Do NOT invent observations, temperatures, decibels, counts, or measurements that were not recorded.
+6. Keep findings to 2-4 short claims. Keep observed, inferred, and uncertain concise (1-3 bullets each).`;
 }
 
 /**
  * JSON Schema for Ollama structured output (Debrief / Report)
+ * Uses minItems: 1 on evidenceRefs to prevent empty citation arrays.
  */
 export const REPORT_JSON_SCHEMA = {
   type: "object",
@@ -231,6 +242,7 @@ export const REPORT_JSON_SCHEMA = {
           evidenceRefs: {
             type: "array",
             items: { type: "string" },
+            minItems: 1,
           },
           confidence: {
             type: "string",

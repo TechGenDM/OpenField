@@ -5,7 +5,7 @@ import {
   validateRawReport,
   createReport,
 } from "../src/lib/ai/debrief";
-import { FieldProtocol, Observation, FieldReport } from "../src/lib/schemas";
+import { FieldProtocol, Observation, FieldReport, FieldReportSchema } from "../src/lib/schemas";
 import { ollama } from "../src/lib/ai/ollama";
 
 // Sample valid protocol for testing
@@ -173,27 +173,100 @@ describe("Debrief & Field Report Generation", () => {
       }
     });
 
-    it("rejects a finding with empty evidence references", () => {
-      const invalidReport: FieldReport = {
+    it("succeeds when a finding cites a valid step ID", () => {
+      const report: FieldReport = {
         ...sampleValidReport,
         findings: [
           {
-            claim: "A claim without any evidence cite.",
+            claim: "Pavement warmed up in direct sunshine.",
+            evidenceRefs: ["step-1"],
+            confidence: "high",
+          },
+        ],
+      };
+      const result = validateReportQuality(report, validStepIds, validPhotoIds);
+      expect(result.ok).toBe(true);
+    });
+
+    it("succeeds when a finding cites a valid photo ID", () => {
+      const report: FieldReport = {
+        ...sampleValidReport,
+        findings: [
+          {
+            claim: "Dense leaf pattern visible in foliage photograph.",
+            evidenceRefs: ["photo-canopy-1"],
+            confidence: "high",
+          },
+        ],
+      };
+      const result = validateReportQuality(report, validStepIds, validPhotoIds);
+      expect(result.ok).toBe(true);
+    });
+
+    it("rejects a finding with empty evidence references at quality and schema level", () => {
+      const invalidReport = {
+        ...sampleValidReport,
+        findings: [
+          {
+            claim: "An unsupported claim without citations.",
             evidenceRefs: [],
             confidence: "low",
           },
         ],
       };
 
+      // 1. Zod schema rejection
+      const schemaRes = FieldReportSchema.safeParse(invalidReport);
+      expect(schemaRes.success).toBe(false);
+
+      // 2. validateReportQuality rejection
       const result = validateReportQuality(
-        invalidReport,
+        invalidReport as FieldReport,
         validStepIds,
         validPhotoIds
       );
       expect(result.ok).toBe(false);
       if (!result.ok) {
-        expect(result.reason).toContain("does not cite any evidence references");
+        expect(result.reason).toContain("evidence references");
       }
+    });
+
+    it("proves that an unsupported claim belongs in 'uncertain' rather than an uncited finding", () => {
+      // Valid approach: uncompleted step 4 represented under uncertain
+      const validReportWithUncertain: FieldReport = {
+        ...sampleValidReport,
+        findings: [
+          {
+            claim: "Observed warm ground in sunny spot.",
+            evidenceRefs: ["step-1"],
+            confidence: "high",
+          },
+        ],
+        uncertain: [
+          "Step 4 was not completed; tree count along footpath was not measured.",
+          "No instrumented decibel or temperature measurements were taken.",
+        ],
+      };
+      const validRes = validateReportQuality(validReportWithUncertain, validStepIds, validPhotoIds);
+      expect(validRes.ok).toBe(true);
+
+      // Invalid approach: uncompleted step placed as an uncited finding
+      const invalidReportWithUncitedFinding = {
+        ...sampleValidReport,
+        findings: [
+          {
+            claim: "Tree count along footpath was not measured.",
+            evidenceRefs: [],
+            confidence: "low",
+          },
+        ],
+      };
+      const invalidRes = validateReportQuality(
+        invalidReportWithUncitedFinding as FieldReport,
+        validStepIds,
+        validPhotoIds
+      );
+      expect(invalidRes.ok).toBe(false);
     });
 
     it("rejects a report with empty nextQuestion", () => {
