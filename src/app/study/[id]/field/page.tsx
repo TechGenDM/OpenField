@@ -248,7 +248,7 @@ export default function FieldModePage() {
           onClick={() => router.push(`/study/${protocol.id}/return`)}
           className="w-full py-4 px-4 rounded-xl bg-zinc-800 text-white font-semibold text-base hover:bg-zinc-700 transition flex items-center justify-center gap-2 border border-zinc-700"
         >
-          <span>I&apos;m back (Finish Outdoor Study)</span>
+          <span>I&apos;m back (Finish Study)</span>
           <span className="text-xs bg-zinc-900 text-zinc-400 px-2 py-0.5 rounded-full border border-zinc-800">
             Next: Return
           </span>

@@ -196,7 +196,7 @@ export default function FieldReportPage() {
               <span className="w-2 h-2 rounded-full bg-emerald-500" />
             </div>
             <p className="text-[11px] text-emerald-800 leading-tight">
-              Directly witnessed, counted, or recorded by the user outdoors.
+              Directly witnessed, counted, or recorded by the user during the study.
             </p>
             <ul className="space-y-2 text-xs text-emerald-950 flex-1 pt-1 list-disc list-inside">
               {report.observed.length > 0 ? (
@@ -279,7 +279,7 @@ export default function FieldReportPage() {
           &ldquo;{report.nextQuestion}&rdquo;
         </h3>
         <p className="text-xs text-zinc-400">
-          Suggested follow-up study based on the uncertainties and evidence gathered during this outing.
+          Suggested follow-up study based on the uncertainties and evidence gathered during this study.
         </p>
       </div>
 

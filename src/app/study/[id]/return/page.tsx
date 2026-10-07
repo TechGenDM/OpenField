@@ -249,7 +249,7 @@ export default function ReturnPage() {
           Record Field Evidence
         </h1>
         <p className="text-sm text-zinc-600">
-          Welcome back. Enter what you observed, heard, or measured outdoors.
+          Welcome back. Enter what you observed, heard, or measured during the study.
           Attach any photos—they are automatically resized to 1024px with all EXIF and GPS coordinates stripped before analysis.
         </p>
       </div>
