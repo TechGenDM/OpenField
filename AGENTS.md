@@ -13,6 +13,7 @@ screen mostly off, then comes back with photos + notes and Gemma writes an hones
 ## Hard rules
 1. **Scope.** Do only the current task. If an idea is not in `SPEC.md`, do not build it. Suggest it in your summary instead.
 2. **Stack is fixed:** Next.js (App Router) + TypeScript (strict) + Tailwind + Zod + official `ollama` JS client. No database. No new dependency without asking me first. Before installing any package, confirm it exists on npm and check its current version. Never invent package names or APIs. If unsure, say so.
+   UI exception: for UI tasks, motion, @phosphor-icons/react and Geist fonts are pre-approved. Still verify versions first.
 3. **AI calls happen only on the server** inside `src/lib/ai/`. Never call a model from a React component. Model name always comes from `OPENFIELD_MODEL` in env.
 4. **Never trust raw model output.** Every model response is parsed with a Zod schema from `src/lib/schemas.ts`. On failure: retry once with the validation error in the prompt, then return a typed error. Never `JSON.parse` and hope.
 5. **Honesty rule (core of the product).** The report must keep three things separate: *observed* (user saw/recorded it), *inferred* (AI reasoning), *uncertain* (not enough evidence). The AI must never invent measurements, locations, species, or numbers the user did not provide.
