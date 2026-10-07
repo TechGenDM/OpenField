@@ -113,4 +113,33 @@ describe("Field Mode Logic & Timer Helpers", () => {
       });
     }
   });
+
+  describe("Regression: Return Screen & Layout Isolation", () => {
+    it("ensures the Return screen does not render literal '&check;' entity", async () => {
+      const fs = await import("fs");
+      const path = await import("path");
+      const returnPagePath = path.resolve(
+        __dirname,
+        "../src/app/study/[id]/return/page.tsx"
+      );
+      const content = fs.readFileSync(returnPagePath, "utf-8");
+
+      // Must not contain raw &check;
+      expect(content).not.toContain("&check;");
+      // Must contain accessible SVG checkmark icon
+      expect(content).toContain("<svg");
+      expect(content).toContain('d="M5 13l4 4L19 7"');
+    });
+
+    it("verifies field mode route detection for layout isolation", () => {
+      const isField = (pathname: string) => pathname.endsWith("/field");
+
+      expect(isField("/study/abc-123/field")).toBe(true);
+      expect(isField("/study/xyz-456/field")).toBe(true);
+
+      expect(isField("/")).toBe(false);
+      expect(isField("/study/abc-123")).toBe(false);
+      expect(isField("/study/abc-123/return")).toBe(false);
+    });
+  });
 });

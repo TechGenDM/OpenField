@@ -19,9 +19,23 @@ export type CreateProtocolResult =
   | { success: false; error: AppError };
 
 /**
+ * Helper to format Ollama runtime telemetry into a safe diagnostic string.
+ * Never includes user input, prompt text, or model output.
+ */
+function formatOllamaStats(res: Record<string, unknown>): string {
+  const loadMs = typeof res.load_duration === "number" ? Math.round(res.load_duration / 1e6) : 0;
+  const promptEvalMs = typeof res.prompt_eval_duration === "number" ? Math.round(res.prompt_eval_duration / 1e6) : 0;
+  const evalMs = typeof res.eval_duration === "number" ? Math.round(res.eval_duration / 1e6) : 0;
+  const evalTokens = typeof res.eval_count === "number" ? res.eval_count : 0;
+  const tps = evalMs > 0 ? ((evalTokens / evalMs) * 1000).toFixed(1) : "N/A";
+
+  return `load: ${loadMs}ms, prompt_eval: ${promptEvalMs}ms, eval: ${evalMs}ms, generated: ${evalTokens} tokens @ ${tps} t/s`;
+}
+
+/**
  * Attempts to parse and validate raw model text output against the FieldProtocol schema
  * AND deterministic quality rules (time budget and SPEC Section 6 safety).
- * Enriches the object with server-generated metadata (id, minutes, type).
+ * Instruments precise execution timing for both validation phases.
  */
 export function validateRawProtocol(
   rawText: string,
@@ -37,10 +51,12 @@ export function validateRawProtocol(
       researchQuestion: parsed.researchQuestion || input.question,
       minutes: input.minutes,
       type: input.type,
-      // Ensure step IDs are assigned if the model provided indices or partial IDs
       steps: Array.isArray(parsed.steps)
         ? parsed.steps.map((step: Record<string, unknown>, idx: number) => ({
-            id: String(step.id || `step-${idx + 1}`),
+            id:
+              typeof step.id === "string" && /^[a-zA-Z0-9_-]+$/.test(step.id.trim())
+                ? step.id.trim()
+                : `step-${idx + 1}`,
             instruction: String(step.instruction || ""),
             evidence: step.evidence,
             required: Boolean(step.required ?? true),
@@ -53,8 +69,12 @@ export function validateRawProtocol(
       audioScript: String(parsed.audioScript || ""),
     };
 
-    // 1. Zod schema structural validation (e.g. 4-6 steps, valid enums)
+    // 1. Measure Zod schema structural validation
+    const schemaStart = performance.now();
     const result = FieldProtocolSchema.safeParse(candidate);
+    const schemaDuration = (performance.now() - schemaStart).toFixed(2);
+    console.log(`[OpenField] schema validation: ${schemaDuration}ms`);
+
     if (!result.success) {
       const issueDetails = result.error.issues
         .map((iss) => `${iss.path.join(".")}: ${iss.message}`)
@@ -62,10 +82,12 @@ export function validateRawProtocol(
       return { success: false, error: issueDetails };
     }
 
-    // 2. Deterministic Quality checks: Time budget & SPEC Section 6 safety rules
-    // Why: LLMs can sometimes hallucinate lengthy instructions or overlook outdoor hazards;
-    // this lightweight check catches violations deterministically and prompts a single retry.
+    // 2. Measure Deterministic Quality checks: Time budget & SPEC Section 6 safety rules
+    const qualityStart = performance.now();
     const qualityCheck = validateProtocolQuality(result.data, input.minutes);
+    const qualityDuration = (performance.now() - qualityStart).toFixed(2);
+    console.log(`[OpenField] quality validation: ${qualityDuration}ms`);
+
     if (!qualityCheck.ok) {
       return { success: false, error: qualityCheck.reason };
     }
@@ -81,8 +103,7 @@ export function validateRawProtocol(
 
 /**
  * Generates a structured Field Protocol using the local Gemma model via Ollama.
- * Enforces Zod validation, time budget checks, and safety rules,
- * executing exactly one retry if the first output is invalid.
+ * Enforces Zod validation, time budget checks, and safety rules with full timing logs.
  */
 export async function createProtocol(
   input: StudyInput
@@ -90,8 +111,6 @@ export async function createProtocol(
   const model = getModelName();
   const userPrompt = buildProtocolUserPrompt(input);
 
-  // Recommended Ollama options from ARCHITECTURE.md:
-  // Protocol generation disables thinking tags for maximum response speed.
   const options = {
     temperature: 1.0,
     top_p: 0.95,
@@ -99,7 +118,10 @@ export async function createProtocol(
   };
 
   try {
-    // Attempt 1: Initial call with structured JSON schema format
+    // Attempt 1
+    console.log(`[OpenField] ollama attempt 1 started (model: ${model})`);
+    const attempt1Start = performance.now();
+
     const firstResponse = await ollama.chat({
       model,
       messages: [
@@ -110,21 +132,29 @@ export async function createProtocol(
       options,
     });
 
+    const attempt1Duration = Math.round(performance.now() - attempt1Start);
+    const firstStats = formatOllamaStats(firstResponse as unknown as Record<string, unknown>);
+    console.log(`[OpenField] ollama attempt 1 completed in ${attempt1Duration}ms (${firstStats})`);
+
     const firstRaw = firstResponse.message?.content || "";
     const firstCheck = validateRawProtocol(firstRaw, input);
 
     if (firstCheck.success) {
+      console.log(`[OpenField] attempt 1 validation succeeded, no retry needed`);
       return { success: true, protocol: firstCheck.data };
     }
 
     // Attempt 2 (Retry once): Feed the validation / quality error back to the model
-    // Hard rule: "On failure: retry once with the validation error in the prompt, then return a typed error."
+    console.log(`[OpenField] retry required: ${firstCheck.error}`);
+    console.log(`[OpenField] ollama attempt 2 (retry) started`);
+
     const retryPrompt = buildProtocolRetryPrompt(
       userPrompt,
       firstRaw,
       firstCheck.error
     );
 
+    const attempt2Start = performance.now();
     const retryResponse = await ollama.chat({
       model,
       messages: [
@@ -135,14 +165,19 @@ export async function createProtocol(
       options,
     });
 
+    const attempt2Duration = Math.round(performance.now() - attempt2Start);
+    const retryStats = formatOllamaStats(retryResponse as unknown as Record<string, unknown>);
+    console.log(`[OpenField] ollama attempt 2 completed in ${attempt2Duration}ms (${retryStats})`);
+
     const retryRaw = retryResponse.message?.content || "";
     const retryCheck = validateRawProtocol(retryRaw, input);
 
     if (retryCheck.success) {
+      console.log(`[OpenField] attempt 2 validation succeeded`);
       return { success: true, protocol: retryCheck.data };
     }
 
-    // Both attempts failed validation
+    console.log(`[OpenField] attempt 2 validation failed: ${retryCheck.error}`);
     return {
       success: false,
       error: {

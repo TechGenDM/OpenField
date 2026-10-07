@@ -9,8 +9,21 @@ export default function ReturnPlaceholderPage() {
 
   return (
     <div className="min-h-[60vh] flex flex-col items-center justify-center text-center p-6 space-y-4">
-      <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-xl">
-        &check;
+      <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center">
+        <svg
+          className="w-6 h-6 text-emerald-800"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2.5}
+            d="M5 13l4 4L19 7"
+          />
+        </svg>
       </div>
       <h1 className="text-2xl font-bold text-zinc-950">You&apos;re Back from the Field</h1>
       <p className="text-sm text-zinc-600 max-w-md">
