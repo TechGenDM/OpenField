@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -11,6 +11,18 @@ import {
   getProtocol,
   getReport,
 } from "@/lib/storage";
+import { sanitizeDisplayText, formatPlural } from "@/lib/ui/sanitize";
+import { StageTrail } from "@/components/ui/StageTrail";
+import { Tag } from "@/components/ui/Tag";
+import { Button } from "@/components/ui/Button";
+import {
+  Printer,
+  CheckSquare,
+  Lightbulb,
+  Question,
+  ArrowRight,
+  ArrowLeft,
+} from "@phosphor-icons/react";
 
 export default function FieldReportPage() {
   const params = useParams();
@@ -32,285 +44,291 @@ export default function FieldReportPage() {
 
   if (loading) {
     return (
-      <div className="min-h-[50vh] flex items-center justify-center">
-        <p className="text-sm text-zinc-500 animate-pulse">Loading field report...</p>
+      <div className="py-16 text-center text-[#44504A] font-mono text-[15px]">
+        Loading field report...
       </div>
     );
   }
 
   if (!protocol || !report) {
     return (
-      <div className="max-w-xl mx-auto py-12 px-4 text-center space-y-4">
-        <h1 className="text-xl font-bold text-zinc-900">Report Not Found</h1>
-        <p className="text-sm text-zinc-600">
+      <div className="max-w-md mx-auto py-16 text-center space-y-4">
+        <h1 className="text-2xl font-semibold text-[#101613]">Report Not Found</h1>
+        <p className="text-[15px] text-[#44504A]">
           We could not find a field report for study &ldquo;{id}&rdquo; in this browser.
         </p>
         <div className="flex gap-3 justify-center pt-2">
           {protocol && (
-            <Link
-              href={`/study/${id}/return`}
-              className="px-4 py-2 rounded-xl bg-zinc-900 text-sm font-semibold text-white hover:bg-zinc-800 transition"
-            >
-              Submit Evidence on Return Screen
+            <Link href={`/study/${id}/return`}>
+              <Button variant="primary">Submit Evidence</Button>
             </Link>
           )}
-          <Link
-            href="/"
-            className="px-4 py-2 rounded-xl border border-zinc-300 text-sm font-medium text-zinc-700 hover:bg-zinc-100 transition"
-          >
-            Create New Study
+          <Link href="/">
+            <Button variant="secondary">Create New Study</Button>
           </Link>
         </div>
       </div>
     );
   }
 
-  const confidenceBadge = (level: "low" | "medium" | "high") => {
-    switch (level) {
+  const formatConfidenceLabel = (confidence: "low" | "medium" | "high") => {
+    switch (confidence) {
       case "high":
-        return (
-          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800">
-            High Confidence
-          </span>
-        );
+        return "High confidence";
       case "medium":
-        return (
-          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800">
-            Medium Confidence
-          </span>
-        );
+        return "Medium confidence";
       case "low":
-        return (
-          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-zinc-100 text-zinc-700">
-            Low Confidence
-          </span>
-        );
+        return "Low confidence";
     }
   };
 
+  const photoCount = report.evidenceSummary?.photos ?? 0;
+  const noteCount = report.evidenceSummary?.notes ?? 0;
+  const measurementCount = report.evidenceSummary?.measurements ?? 0;
+
   return (
-    <div className="max-w-3xl mx-auto space-y-8 pb-16 print:py-0 print:space-y-4">
-      {/* Header */}
-      <div className="space-y-3 pt-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-emerald-800">
-            <span className="w-2 h-2 rounded-full bg-emerald-600 inline-block" />
-            <span>Screen 5 of 5 &bull; Field Report</span>
-          </div>
-          <span className="text-xs text-zinc-500 font-mono">
-            ID: {protocol.id.slice(0, 8)}
+    <div className="max-w-3xl mx-auto space-y-10 pb-16 print:py-0 print:space-y-6">
+      {/* 4-Stage Survey Progress Trail */}
+      <StageTrail currentStage="report" />
+
+      {/* Screen Header */}
+      <header className="space-y-4 border-b border-[#D3D9D3] pb-6">
+        <div className="flex items-center justify-between no-print">
+          <Link
+            href={`/study/${id}`}
+            className="inline-flex items-center gap-2 text-[14px] font-medium text-[#44504A] hover:text-[#101613] transition-colors"
+          >
+            <ArrowLeft size={16} />
+            <span>View Protocol</span>
+          </Link>
+          <span className="text-[12px] font-mono uppercase tracking-wider text-[#44504A]">
+            FIELD REPORT
           </span>
         </div>
-        <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-950">
-          {protocol.title}
+
+        <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-[#101613] leading-tight">
+          Field Investigation Report: {sanitizeDisplayText(protocol.title)}
         </h1>
-        <p className="text-base text-zinc-700 font-medium">
-          Research Question: &ldquo;{protocol.researchQuestion}&rdquo;
-        </p>
-      </div>
 
-      {/* Meta + Evidence Summary Pill */}
-      <div className="p-4 rounded-2xl bg-zinc-50 border border-zinc-200/80 flex flex-wrap items-center justify-between gap-4 text-xs">
-        <div className="flex items-center gap-3 text-zinc-600">
-          <span>{protocol.minutes} Minutes</span>
-          <span>&bull;</span>
-          <span className="capitalize">{protocol.type} Study</span>
+        {/* Question as quote */}
+        <blockquote className="border-l-[3px] border-l-[#B8461A] pl-4 py-1">
+          <span className="block text-[12px] font-mono uppercase tracking-wider text-[#44504A]">
+            Research Question
+          </span>
+          <p className="text-[18px] sm:text-[19px] font-medium text-[#101613] mt-0.5 leading-snug">
+            &ldquo;{sanitizeDisplayText(protocol.researchQuestion)}&rdquo;
+          </p>
+        </blockquote>
+
+        {/* Metadata line with correct plurals */}
+        <div className="text-[13px] font-mono text-[#44504A] uppercase tracking-wider pt-1 flex flex-wrap gap-x-4 gap-y-1">
+          <span>{protocol.minutes} MIN STUDY</span>
+          <span aria-hidden="true">/</span>
+          <span>{formatPlural(photoCount, "photo")}</span>
+          <span aria-hidden="true">/</span>
+          <span>{formatPlural(noteCount, "note")}</span>
+          <span aria-hidden="true">/</span>
+          <span>{formatPlural(measurementCount, "measurement")}</span>
         </div>
+      </header>
 
-        <div className="flex items-center gap-3 font-medium text-zinc-800">
-          <span className="inline-flex items-center gap-1">
-            <strong>{report.evidenceSummary.photos}</strong> photos
-          </span>
-          <span>&bull;</span>
-          <span className="inline-flex items-center gap-1">
-            <strong>{report.evidenceSummary.notes}</strong> notes
-          </span>
-          <span>&bull;</span>
-          <span className="inline-flex items-center gap-1">
-            <strong>{report.evidenceSummary.measurements}</strong> measurements
-          </span>
-        </div>
-      </div>
+      {/* Findings: Ruled list (not cards) */}
+      <section aria-labelledby="findings-heading" className="space-y-4">
+        <h2
+          id="findings-heading"
+          className="text-[14px] font-mono uppercase tracking-wider text-[#44504A]"
+        >
+          Key Empirical Findings
+        </h2>
 
-      {/* Section 1: Findings */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-zinc-900 tracking-tight">
-            Key Findings &amp; Evidence Citations
-          </h2>
-          <span className="text-xs text-zinc-500">
-            {report.findings.length} findings
-          </span>
-        </div>
-
-        <div className="space-y-3">
-          {report.findings.map((finding, idx) => (
-            <div
-              key={idx}
-              className="p-4 rounded-2xl border border-zinc-200 bg-white shadow-sm space-y-3"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <p className="text-sm font-semibold text-zinc-950 flex-1">
-                  {finding.claim}
-                </p>
-                {confidenceBadge(finding.confidence)}
+        <ol className="divide-y divide-[#D3D9D3] border-y border-[#D3D9D3] list-none p-0 m-0">
+          {report.findings.map((f, i) => (
+            <li key={i} className="py-5 space-y-3">
+              <div className="flex items-baseline justify-between gap-4">
+                <span className="font-mono text-[14px] text-[#44504A] select-none">
+                  FINDING {String(i + 1).padStart(2, "0")}
+                </span>
+                {/* Confidence as a plain text label, no colored pills or bars */}
+                <span className="text-[13px] font-mono text-[#44504A]">
+                  {formatConfidenceLabel(f.confidence)}
+                </span>
               </div>
 
-              {/* Citations */}
-              <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                <span className="text-[11px] text-zinc-500 font-medium mr-1">
+              {/* Claim at 18-20px */}
+              <p className="text-[18px] sm:text-[20px] font-medium text-[#101613] leading-snug">
+                {sanitizeDisplayText(f.claim)}
+              </p>
+
+              {/* Evidence references as mono outlined tags */}
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <span className="text-[12px] font-mono text-[#44504A] uppercase tracking-wider">
                   Cited Evidence:
                 </span>
-                {finding.evidenceRefs.map((ref, rIdx) => (
-                  <span
-                    key={rIdx}
-                    className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-mono bg-zinc-100 text-zinc-700 border border-zinc-200/60"
-                  >
-                    #{ref}
-                  </span>
+                {f.evidenceRefs.map((ref) => (
+                  <Tag key={ref} variant="dim">
+                    {ref}
+                  </Tag>
                 ))}
               </div>
-            </div>
+            </li>
           ))}
-        </div>
-      </div>
+        </ol>
+      </section>
 
-      {/* Section 2: The Three Honest AI Pillars */}
-      <div className="space-y-4">
-        <div>
-          <h2 className="text-lg font-bold text-zinc-900 tracking-tight">
-            Honest Evidence Breakdown
+      {/* Signature Honesty Section: Three stacked blocks differing by line style, icon, and structural note */}
+      <section aria-labelledby="honesty-heading" className="space-y-6 pt-4">
+        <div className="border-b border-[#D3D9D3] pb-3">
+          <h2
+            id="honesty-heading"
+            className="text-[14px] font-mono uppercase tracking-wider text-[#101613] font-semibold"
+          >
+            Evidence Honesty Analysis
           </h2>
-          <p className="text-xs text-zinc-500">
-            OpenField strictly separates observed reality from AI reasoning and unanswered gaps.
+          <p className="text-[14px] text-[#44504A] mt-1">
+            Separating recorded facts, synthetic deductions, and empirical gaps.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Pillar 1: Observed */}
-          <div className="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-200 space-y-3 flex flex-col">
+        <div className="space-y-6">
+          {/* OBSERVED: Solid 2px ink left border, check icon, full width */}
+          <div className="p-5 sm:p-6 bg-[#FAFBF9] border border-[#D3D9D3] border-l-[3px] border-l-[#101613] rounded-[4px] space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-emerald-900">
-                Observed
+              <div className="flex items-center gap-2.5 text-[#101613] font-semibold text-[16px]">
+                <CheckSquare size={20} weight="bold" />
+                <span className="font-mono uppercase tracking-wider text-[14px]">OBSERVED</span>
+              </div>
+              <span className="text-[12px] font-mono text-[#44504A] italic">
+                You saw or counted this
               </span>
-              <span className="w-2 h-2 rounded-full bg-emerald-500" />
             </div>
-            <p className="text-[11px] text-emerald-800 leading-tight">
-              Directly witnessed, counted, or recorded by the user during the study.
-            </p>
-            <ul className="space-y-2 text-xs text-emerald-950 flex-1 pt-1 list-disc list-inside">
-              {report.observed.length > 0 ? (
-                report.observed.map((item, i) => (
-                  <li key={i} className="leading-relaxed">
-                    <span>{item}</span>
+            {report.observed.length > 0 ? (
+              <ul className="space-y-2 list-none p-0 text-[16px] text-[#101613] leading-relaxed">
+                {report.observed.map((item, idx) => (
+                  <li key={idx} className="flex items-start gap-2.5">
+                    <span className="font-mono text-[#44504A] select-none text-[13px] mt-1">
+                      -
+                    </span>
+                    <span>{sanitizeDisplayText(item)}</span>
                   </li>
-                ))
-              ) : (
-                <li className="italic text-emerald-800/80 list-none">
-                  No direct observations recorded.
-                </li>
-              )}
-            </ul>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-[14px] text-[#44504A] italic">No direct factual observations were recorded.</p>
+            )}
           </div>
 
-          {/* Pillar 2: Inferred */}
-          <div className="p-4 rounded-2xl bg-blue-50/60 border border-blue-200 space-y-3 flex flex-col">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-blue-900">
-                Inferred
-              </span>
-              <span className="w-2 h-2 rounded-full bg-blue-500" />
-            </div>
-            <p className="text-[11px] text-blue-800 leading-tight">
-              AI deductions and hypotheses based on collected patterns.
-            </p>
-            <ul className="space-y-2 text-xs text-blue-950 flex-1 pt-1 list-disc list-inside">
+          {/* INFERRED & UNCERTAIN: Side by side on wide screens, stacked on small */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* INFERRED: Dashed 2px ink border, lightbulb icon */}
+            <div className="p-5 sm:p-6 bg-[#FAFBF9] border border-dashed border-[#101613] border-l-[3px] rounded-[4px] space-y-3">
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2.5 text-[#101613] font-semibold text-[16px]">
+                  <Lightbulb size={20} weight="bold" />
+                  <span className="font-mono uppercase tracking-wider text-[14px]">INFERRED</span>
+                </div>
+                <span className="text-[12px] font-mono text-[#44504A] italic">
+                  The AI reasoned this from your evidence
+                </span>
+              </div>
               {report.inferred.length > 0 ? (
-                report.inferred.map((item, i) => (
-                  <li key={i} className="leading-relaxed">
-                    <span>{item}</span>
-                  </li>
-                ))
+                <ul className="space-y-2 list-none p-0 text-[15px] text-[#101613] leading-relaxed">
+                  {report.inferred.map((item, idx) => (
+                    <li key={idx} className="flex items-start gap-2">
+                      <span className="font-mono text-[#44504A] select-none text-[13px] mt-1">
+                        -
+                      </span>
+                      <span>{sanitizeDisplayText(item)}</span>
+                    </li>
+                  ))}
+                </ul>
               ) : (
-                <li className="italic text-blue-800/80 list-none">
-                  No inferences drawn.
-                </li>
+                <p className="text-[14px] text-[#44504A] italic">No inferences were derived.</p>
               )}
-            </ul>
-          </div>
-
-          {/* Pillar 3: Uncertain */}
-          <div className="p-4 rounded-2xl bg-amber-50/60 border border-amber-200 space-y-3 flex flex-col">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-amber-900">
-                Uncertain
-              </span>
-              <span className="w-2 h-2 rounded-full bg-amber-500" />
             </div>
-            <p className="text-[11px] text-amber-800 leading-tight">
-              Missing measurements, gaps in evidence, and unverified elements.
-            </p>
-            <ul className="space-y-2 text-xs text-amber-950 flex-1 pt-1 list-disc list-inside">
+
+            {/* UNCERTAIN: Dotted 2px ink border + faint diagonal hatch, question icon */}
+            <div className="p-5 sm:p-6 bg-[#FAFBF9] bg-hatch border border-dotted border-[#101613] border-l-[3px] rounded-[4px] space-y-3">
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2.5 text-[#101613] font-semibold text-[16px]">
+                  <Question size={20} weight="bold" />
+                  <span className="font-mono uppercase tracking-wider text-[14px]">UNCERTAIN</span>
+                </div>
+                <span className="text-[12px] font-mono text-[#44504A] italic">
+                  Missing or unverified
+                </span>
+              </div>
               {report.uncertain.length > 0 ? (
-                report.uncertain.map((item, i) => (
-                  <li key={i} className="leading-relaxed">
-                    <span>{item}</span>
-                  </li>
-                ))
+                <ul className="space-y-2 list-none p-0 text-[15px] text-[#101613] leading-relaxed">
+                  {report.uncertain.map((item, idx) => (
+                    <li key={idx} className="flex items-start gap-2">
+                      <span className="font-mono text-[#44504A] select-none text-[13px] mt-1">
+                        -
+                      </span>
+                      <span>{sanitizeDisplayText(item)}</span>
+                    </li>
+                  ))}
+                </ul>
               ) : (
-                <li className="italic text-amber-800/80 list-none">
-                  No uncertainties recorded.
-                </li>
+                <p className="text-[14px] text-[#44504A] italic">All claimed steps had verifiable evidence.</p>
               )}
-            </ul>
+            </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Section 3: Next Research Question */}
-      <div className="p-5 rounded-2xl bg-zinc-950 text-white space-y-2">
-        <div className="flex items-center gap-2 text-xs font-semibold text-emerald-400 uppercase tracking-wider">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-          </svg>
-          <span>Next Investigation</span>
-        </div>
-        <h3 className="text-base font-bold text-white">
-          &ldquo;{report.nextQuestion}&rdquo;
-        </h3>
-        <p className="text-xs text-zinc-400">
-          Suggested follow-up study based on the uncertainties and evidence gathered during this study.
-        </p>
-      </div>
+      {/* Next Investigation as a quiet large-type quote with a signal rule */}
+      {report.nextQuestion && (
+        <section aria-labelledby="next-investigation-heading" className="pt-4">
+          <div className="border-l-[3px] border-l-[#B8461A] pl-5 py-2 space-y-1">
+            <h2
+              id="next-investigation-heading"
+              className="text-[12px] font-mono uppercase tracking-wider text-[#44504A]"
+            >
+              Suggested Next Investigation
+            </h2>
+            <p className="text-[19px] sm:text-[21px] font-medium text-[#101613] leading-snug">
+              &ldquo;{sanitizeDisplayText(report.nextQuestion)}&rdquo;
+            </p>
+          </div>
+        </section>
+      )}
 
-      {/* Actions */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-zinc-200 print:hidden">
-        <div className="flex gap-2">
-          <button
-            onClick={() => window.print()}
+      {/* Actions: Print / Save Report, View Protocol, Start a New Study */}
+      <footer className="pt-8 border-t border-[#D3D9D3] no-print">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Button
             type="button"
-            className="px-4 py-2.5 rounded-xl border border-zinc-300 bg-white hover:bg-zinc-50 text-xs font-semibold text-zinc-800 transition shadow-sm flex items-center gap-1.5"
+            variant="secondary"
+            size="lg"
+            onClick={() => window.print()}
+            className="flex-1"
           >
-            <svg className="w-4 h-4 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-            </svg>
+            <Printer size={18} />
             <span>Print / Save Report</span>
-          </button>
-          <Link
-            href={`/study/${protocol.id}`}
-            className="px-4 py-2.5 rounded-xl border border-zinc-200 hover:bg-zinc-100 text-xs font-medium text-zinc-700 transition"
-          >
-            View Protocol
+          </Button>
+
+          <Link href={`/study/${id}`} className="flex-1">
+            <Button
+              variant="secondary"
+              size="lg"
+              className="w-full"
+            >
+              <span>View Protocol</span>
+            </Button>
+          </Link>
+
+          <Link href="/" className="flex-1">
+            <Button
+              variant="primary"
+              size="lg"
+              className="w-full"
+            >
+              <span>Start New Study</span>
+              <ArrowRight size={18} />
+            </Button>
           </Link>
         </div>
-
-        <Link
-          href="/"
-          className="px-5 py-2.5 rounded-xl bg-zinc-950 hover:bg-zinc-800 text-white text-xs font-semibold transition shadow-sm"
-        >
-          Start a New Study &rarr;
-        </Link>
-      </div>
+      </footer>
     </div>
   );
 }
