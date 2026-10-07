@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --background: #fbfbf9;
+    --foreground: #141413;
+    --muted: #64645e;
+    --border: #e3e3de;
+    --card: #ffffff;
+    --accent: #234e34;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* Print styles specifically designed for the printable Field Card */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .field-card {
+    border: 2px solid #000000 !important;
+    box-shadow: none !important;
+    padding: 1.5rem !important;
+    page-break-inside: avoid;
+  }
+}

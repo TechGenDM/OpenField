@@ -1,1 +1,8 @@
 .DS_Store
+node_modules/
+.next/
+out/
+build/
+.env*.local
+*.log
+*.tsbuildinfo
