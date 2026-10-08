@@ -1,4 +1,13 @@
+# OS metadata
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+*.ds_store
+*.dl.ds_store
+.dl.ds_store
+
 node_modules/
 .next/
 out/
