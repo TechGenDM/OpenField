@@ -8,6 +8,8 @@ OpenField is a local-AI field study engine powered by Gemma via Ollama. It turns
 
 Built for Hacktoberfest 2026.
 
+![OpenField Homepage](public/images/OpenFieldHomepage.png)
+
 ---
 
 ## What is OpenField?
@@ -53,6 +55,8 @@ Reality supplies the data.
 ---
 
 ## How It Works
+
+![OpenField Architecture](public/images/OpenFieldArchitecture.png)
 
 ```
 Question
