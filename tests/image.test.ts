@@ -85,5 +85,81 @@ describe("Image Processing & Dimension Calculations", () => {
       });
       expect(res.ok).toBe(true);
     });
+
+    it("accepts a file exactly at the 20 MB limit and rejects one byte more", () => {
+      expect(validateImageFile({ type: "image/png", size: MAX_RAW_IMAGE_SIZE_BYTES }).ok).toBe(true);
+
+      const overByOneByte = validateImageFile({ type: "image/png", size: MAX_RAW_IMAGE_SIZE_BYTES + 1 });
+      expect(overByOneByte.ok).toBe(false);
+      if (!overByOneByte.ok) {
+        expect(overByOneByte.reason).toContain("20.0 MB");
+      }
+    });
+
+    it("accepts a zero-byte file (no minimum size is enforced)", () => {
+      // Documented current behaviour: only the MIME type and the upper size
+      // bound are checked, so an empty file passes this gate.
+      expect(validateImageFile({ type: "image/jpeg", size: 0 })).toEqual({ ok: true });
+    });
+
+    it("still rejects a zero-byte file whose type is unsupported", () => {
+      const res = validateImageFile({ type: "image/gif", size: 0 });
+
+      expect(res.ok).toBe(false);
+      if (!res.ok) {
+        expect(res.reason).toContain("Unsupported image format");
+      }
+    });
+
+    it("matches MIME types case-sensitively", () => {
+      for (const mime of ["IMAGE/JPEG", "Image/Png", "image/WEBP", "image/JPG"]) {
+        const res = validateImageFile({ type: mime, size: 1024 });
+        expect(res.ok).toBe(false);
+      }
+    });
+
+    it("rejects an empty MIME type", () => {
+      const res = validateImageFile({ type: "", size: 1024 });
+
+      expect(res.ok).toBe(false);
+      if (!res.ok) {
+        expect(res.reason).toContain('Unsupported image format ""');
+      }
+    });
+  });
+
+  describe("calculateTargetDimensions boundary cases", () => {
+    it("keeps a 1 x 1 pixel image untouched", () => {
+      expect(calculateTargetDimensions(1, 1)).toEqual({ width: 1, height: 1 });
+    });
+
+    it("scales an extreme landscape panorama", () => {
+      expect(calculateTargetDimensions(10000, 50)).toEqual({ width: 1024, height: 5 });
+    });
+
+    it("scales an extreme portrait panorama", () => {
+      expect(calculateTargetDimensions(50, 10000)).toEqual({ width: 5, height: 1024 });
+    });
+
+    it("never collapses the short side to zero", () => {
+      expect(calculateTargetDimensions(100000, 1)).toEqual({ width: 1024, height: 1 });
+    });
+
+    it("honours a custom maxDimension", () => {
+      expect(calculateTargetDimensions(2048, 1024, 512)).toEqual({ width: 512, height: 256 });
+    });
+
+    it("rounds the scaled sides to whole pixels", () => {
+      expect(calculateTargetDimensions(1000, 333, 100)).toEqual({ width: 100, height: 33 });
+    });
+
+    it("rounds fractional dimensions that are already within the limit", () => {
+      expect(calculateTargetDimensions(800.6, 600.4)).toEqual({ width: 801, height: 600 });
+    });
+
+    it("returns 1 x 1 for NaN and non-positive inputs", () => {
+      expect(calculateTargetDimensions(NaN, NaN)).toEqual({ width: 1, height: 1 });
+      expect(calculateTargetDimensions(0, 1024)).toEqual({ width: 1, height: 1 });
+    });
   });
 });
