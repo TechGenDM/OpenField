@@ -12,6 +12,7 @@ import {
   getReport,
 } from "@/lib/storage";
 import { sanitizeDisplayText, formatPlural } from "@/lib/ui/sanitize";
+import { exportReportMarkdown, exportReportJson } from "@/lib/export";
 import { StageTrail } from "@/components/ui/StageTrail";
 import { Tag } from "@/components/ui/Tag";
 import { Button } from "@/components/ui/Button";
@@ -22,6 +23,7 @@ import {
   Question,
   ArrowRight,
   ArrowLeft,
+  DownloadSimple,
 } from "@phosphor-icons/react";
 
 export default function FieldReportPage() {
@@ -85,6 +87,16 @@ export default function FieldReportPage() {
   const photoCount = report.evidenceSummary?.photos ?? 0;
   const noteCount = report.evidenceSummary?.notes ?? 0;
   const measurementCount = report.evidenceSummary?.measurements ?? 0;
+
+  const handleExportMarkdown = () => {
+    if (!protocol || !report) return;
+    exportReportMarkdown(protocol, report);
+  };
+
+  const handleExportJson = () => {
+    if (!protocol || !report) return;
+    exportReportJson(protocol, report);
+  };
 
   return (
     <div className="max-w-3xl mx-auto space-y-10 pb-16 print:py-0 print:space-y-6">
@@ -293,8 +305,33 @@ export default function FieldReportPage() {
         </section>
       )}
 
-      {/* Actions: Print / Save Report, View Protocol, Start a New Study */}
-      <footer className="pt-8 border-t border-[#D3D9D3] no-print">
+      {/* Actions: Export Markdown / JSON, Print / Save Report, View Protocol, Start a New Study */}
+      <footer className="pt-8 border-t border-[#D3D9D3] no-print space-y-3">
+        {/* Export Buttons */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Button
+            type="button"
+            variant="secondary"
+            size="lg"
+            onClick={handleExportMarkdown}
+            className="flex-1"
+          >
+            <DownloadSimple size={18} />
+            <span>Export Markdown (.md)</span>
+          </Button>
+
+          <Button
+            type="button"
+            variant="secondary"
+            size="lg"
+            onClick={handleExportJson}
+            className="flex-1"
+          >
+            <DownloadSimple size={18} />
+            <span>Export JSON (.json)</span>
+          </Button>
+        </div>
+
         <div className="flex flex-col sm:flex-row gap-3">
           <Button
             type="button"
